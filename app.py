@@ -11,7 +11,7 @@ USERS = {
     "admin": "1234",
     "misa": "CADAN09",
     "Mto.Toledo": "TOD02",
-    "JF.Verito": "VAD001",
+    "JF.Verito": "VAD001"
 }
 
 # ======================= SESIÓN =======================

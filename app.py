@@ -1,4 +1,4 @@
-```python
+
 # ======================= IMPORTS =======================
 import streamlit as st
 import pandas as pd
@@ -186,4 +186,4 @@ else:
                     st.rerun()
                 else:
                     st.error("❌ No se encontró estudiante con ese número y periodo.")
-```
+

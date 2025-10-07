@@ -9,7 +9,9 @@ st.set_page_config(page_title="Sistema de Estudiantes", page_icon="🎓", layout
 # ======================= USUARIOS (login simple en el mismo archivo) =======================
 USERS = {
     "admin": "1234",
-    "misa": "CADAN09"
+    "misa": "CADAN09",
+    "Mto.Toledo": "TOD02",
+    "JF.Verito": "VAD001",
 }
 
 # ======================= SESIÓN =======================

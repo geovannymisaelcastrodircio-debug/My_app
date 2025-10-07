@@ -33,11 +33,12 @@ if not st.session_state.logged_in:
 
 else:
     # ======================= CONEXIÓN A MONGODB =======================
-    client = MongoClient(
-        "mongodb+srv://MISACAST:CADAN09@estudiantes.ddelcua.mongodb.net/?retryWrites=true&w=majority&appName=ESTUDIANTES",
-        connect=True,
-        sUnerverSelectionTimeoutMS=3000
-    )
+client = MongoClient(
+    "mongodb+srv://MISACAST:CADAN09@estudiantes.ddelcua.mongodb.net/?retryWrites=true&w=majority",
+    connect=True,
+    serverSelectionTimeoutMS=3000
+)
+
     db = client["ARCHIVOS-RESIDENCIAS"]
 
     # ======================= VARIABLES =======================

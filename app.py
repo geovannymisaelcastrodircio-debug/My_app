@@ -57,25 +57,37 @@ else:
         "🗑 Eliminar estudiante"
     ])
 
-    # ======================= FUNCIÓN DE BÚSQUEDA UNIVERSAL =======================
-    def buscar_dato(busqueda, db, carreras):
-        resultados = []
-        for carrera in carreras:
-            coleccion = db[carrera]
-            query = {
-                "$or": [
-                    {"NOMBRE (S)": {"$regex": busqueda, "$options": "i"}},
-                    {"A. PAT": {"$regex": busqueda, "$options": "i"}},
-                    {"A. MAT": {"$regex": busqueda, "$options": "i"}},
-                    {"NUM. CONTROL": {"$regex": busqueda, "$options": "i"}},
-                    {"TEMA": {"$regex": busqueda, "$options": "i"}},
-                    {"A. INTERNO": {"$regex": busqueda, "$options": "i"}},
-                    {"A. EXTERNO": {"$regex": busqueda, "$options": "i"}},
-                    {"REVISOR": {"$regex": busqueda, "$options": "i"}},
-                ]
-            }
-            resultados.extend(list(coleccion.find(query, {"_id": 0})))
-        return resultados
+# ======================= FUNCIÓN DE BÚSQUEDA UNIVERSAL =======================
+def buscar_dato(busqueda, db, carreras):
+    resultados = []
+    for carrera in carreras:
+        coleccion = db[carrera]
+
+        # Detectar si la búsqueda es numérica (para NUM. CONTROL)
+        es_numerico = busqueda.isdigit()
+
+        query = {
+            "$or": [
+                {"NOMBRE (S)": {"$regex": busqueda, "$options": "i"}},
+                {"A. PAT": {"$regex": busqueda, "$options": "i"}},
+                {"A. MAT": {"$regex": busqueda, "$options": "i"}},
+                {"TEMA": {"$regex": busqueda, "$options": "i"}},
+                {"A. INTERNO": {"$regex": busqueda, "$options": "i"}},
+                {"A. EXTERNO": {"$regex": busqueda, "$options": "i"}},
+                {"REVISOR": {"$regex": busqueda, "$options": "i"}},
+            ]
+        }
+
+        # Si parece número, busca por coincidencia exacta o parcial en NUM. CONTROL
+        if es_numerico:
+            query["$or"].append({"NUM. CONTROL": busqueda})
+            query["$or"].append({"NUM. CONTROL": {"$regex": f"^{busqueda}", "$options": "i"}})
+        else:
+            # Si no es numérico, también busca coincidencias parciales en NUM. CONTROL como texto
+            query["$or"].append({"NUM. CONTROL": {"$regex": busqueda, "$options": "i"}})
+
+        resultados.extend(list(coleccion.find(query, {"_id": 0})))
+    return resultados
 
     # ======================= 1. BÚSQUEDA UNIVERSAL =======================
     if menu == "🔍 Búsqueda universal":

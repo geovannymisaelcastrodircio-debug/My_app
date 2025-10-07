@@ -1,3 +1,4 @@
+
 # ======================= IMPORTS =======================
 import streamlit as st
 import pandas as pd
@@ -16,6 +17,7 @@ USERS = {
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
+# ======================= LOGIN =======================
 if not st.session_state.logged_in:
     st.title("🔐 Inicio de Sesión")
     usuario = st.text_input("Usuario")
@@ -34,12 +36,49 @@ else:
     client = MongoClient(
         "mongodb+srv://MISACAST:CADAN09@estudiantes.ddelcua.mongodb.net/?retryWrites=true&w=majority&appName=ESTUDIANTES",
         connect=True,
-        serverSelectionTimeoutMS=3000
+        sUnerverSelectionTimeoutMS=3000
     )
     db = client["ARCHIVOS-RESIDENCIAS"]
 
     # ======================= VARIABLES =======================
     carreras = ["II", "ISC"]
+
+    # ======================= FUNCIÓN: BUSCAR DATO =======================
+    def buscar_dato():
+        st.subheader("🔍 Buscar en toda la base de datos")
+        busqueda = st.text_input("Escribe nombre, número de control o tema:")
+
+        if st.button("Buscar"):
+            if not busqueda:
+                st.warning("⚠️ Ingresa un valor para buscar.")
+                return
+
+            resultados = []
+            for carrera in carreras:
+                coleccion = db[carrera]
+                query = {
+                    "$or": [
+                        {"NOMBRE (S)": {"$regex": busqueda, "$options": "i"}},
+                        {"A. PAT": {"$regex": busqueda, "$options": "i"}},
+                        {"A. MAT": {"$regex": busqueda, "$options": "i"}},
+                        {"NUM. CONTROL": {"$regex": busqueda, "$options": "i"}},
+                        {"TEMA": {"$regex": busqueda, "$options": "i"}},
+                        {"A. INTERNO": {"$regex": busqueda, "$options": "i"}},
+                        {"A. EXTERNO": {"$regex": busqueda, "$options": "i"}},
+                        {"REVISOR": {"$regex": busqueda, "$options": "i"}},
+                    ]
+                }
+
+                try:
+                    resultados.extend(list(coleccion.find(query, {"_id": 0})))
+                except Exception as e:
+                    st.error(f"Error al consultar la colección {carrera}: {e}")
+
+            if resultados:
+                st.success(f"✅ Se encontraron {len(resultados)} resultados")
+                st.dataframe(pd.DataFrame(resultados))
+            else:
+                st.info("🔎 No se encontraron coincidencias.")
 
     # ======================= SIDEBAR MENÚ =======================
     st.sidebar.title("📌 Menú de Navegación")
@@ -56,31 +95,7 @@ else:
 
     # ======================= 1. BÚSQUEDA UNIVERSAL =======================
     if menu == "🔍 Búsqueda universal":
-        st.subheader("🔍 Buscar en toda la base de datos")
-        busqueda = st.text_input("Escribe nombre, número de control o tema:")
-
-        if busqueda:
-            resultados = []
-            for carrera in carreras:
-                coleccion = db[carrera]
-                query = {
-                    "$or": [
-                        {"NOMBRE (S)": {"$regex": busqueda, "$options": "i"}},
-                        {"A. PAT": {"$regex": busqueda, "$options": "i"}},
-                        {"A. MAT": {"$regex": busqueda, "$options": "i"}},
-                        {"NUM. CONTROL": {"$regex": busqueda, "$options": "i"}},
-                        {"TEMA": {"$regex": busqueda, "$options": "i"}},
-                        {"A. INTERNO": {"$regex": busqueda, "$options": "i"}},
-                        {"A. EXTERNO": {"$regex": busqueda, "$options": "i"}},
-                        {"REVISOR": {"$regex": busqueda, "$options": "i"}},
-                    ]
-                }
-                resultados.extend(list(coleccion.find(query, {"_id": 0})))
-
-            if resultados:
-                st.dataframe(pd.DataFrame(resultados))
-            else:
-                st.info("No se encontraron coincidencias.")
+        buscar_dato()
 
     # ======================= 2. VER ESTUDIANTES =======================
     elif menu == "📖 Ver estudiantes":
@@ -179,3 +194,4 @@ else:
                     st.rerun()
                 else:
                     st.error("❌ No se encontró estudiante con ese número y periodo.")
+

@@ -88,9 +88,11 @@ else:
                 resultados = []
                 for carrera in carreras:
                     coleccion = db[carrera]
-                    # Usamos $regex para buscar aunque el campo esté como string o int
-                    query = {"NUM. CONTROL": {"$regex": f"^{num_clean}$", "$options": "i"}}
-                    resultados.extend(list(coleccion.find(query, {"_id": 0})))
+                    # Buscar por string y por int, cubriendo ambos posibles tipos
+                    query_string = {"NUM. CONTROL": num_clean}
+                    query_int = {"NUM. CONTROL": int(num_clean)}
+                    resultados.extend(list(coleccion.find(query_string, {"_id": 0})))
+                    resultados.extend(list(coleccion.find(query_int, {"_id": 0})))
                 if resultados:
                     st.dataframe(pd.DataFrame(resultados))
                 else:

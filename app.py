@@ -77,10 +77,11 @@ else:
             if not busqueda.isnumeric():
                 st.warning("⚠️ Solo se permiten números para esta búsqueda.")
             else:
+                numero = int(busqueda.strip())
                 resultados = []
                 for carrera in carreras:
                     coleccion = db[carrera]
-                    query = {"$expr": {"$eq": [{"$toString": "$NUM. CONTROL"}, busqueda.strip()]}}
+                    query = {"NUM. CONTROL": numero}
                     resultados.extend(list(coleccion.find(query, {"_id": 0})))
                 if resultados:
                     df = pd.DataFrame(resultados)
@@ -166,12 +167,12 @@ else:
             fecha_dictamen = st.date_input("Fecha de dictamen")
             submitted = st.form_submit_button("Agregar estudiante")
             if submitted:
-                if nombre and num_control:
+                if nombre and num_control.isnumeric():
                     nombre_completo = f"{nombre} {apellido_pat} {apellido_mat}".strip()
                     coleccion.insert_one({
                         "PERIODO": periodo,
                         "C": c,
-                        "NUM. CONTROL": num_control.strip(),
+                        "NUM. CONTROL": int(num_control.strip()),  # Guardamos como número
                         "Unnamed: 3": sexo,
                         "A. PAT": apellido_pat,
                         "A. MAT": apellido_mat,
@@ -187,4 +188,4 @@ else:
                     st.success(f"✅ Estudiante '{nombre_completo}' agregado correctamente.")
                     st.rerun()
                 else:
-                    st.warning("⚠️ Debes llenar al menos nombre y número de control.")
+                    st.warning("⚠️ Debes llenar al menos nombre y número de control válido (solo números).")

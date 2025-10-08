@@ -1,4 +1,4 @@
-```python
+
 import streamlit as st
 import pandas as pd
 from pymongo import MongoClient
@@ -153,4 +153,4 @@ elif menu == "Buscar / Editar":
                             }
                             actualizar_estudiante(fila["_id"], nuevos_datos)
                             st.success("✅ Datos actualizados correctamente.")
-```
+

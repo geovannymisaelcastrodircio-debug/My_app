@@ -87,7 +87,7 @@ else:
                 resultados = []
                 for carrera in carreras:
                     coleccion = db[carrera]
-                    query = {"NUM. CONTROL": int(busqueda_num.strip())}
+                    query = {"NUM. CONTROL" : int(busqueda_num.strip())}
                     resultados.extend(list(coleccion.find(query, {"_id": 0})))
                 if resultados:
                     st.dataframe(pd.DataFrame(resultados))

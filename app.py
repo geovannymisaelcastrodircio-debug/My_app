@@ -108,9 +108,9 @@ else:
                     df_periodo = pd.DataFrame(list(coleccion.find({"PERIODO": periodo}, {"_id": 0})))
                     if not df_periodo.empty:
                         df_periodo["NOMBRE_COMPLETO"] = (
-                            df_periodo["NOMBRE (S)"].fillna("") + " " +
-                            df_periodo["A. PAT"].fillna("") + " " +
-                            df_periodo["A. MAT"].fillna("")
+                            df_periodo.get("NOMBRE (S)", pd.Series([""]*len(df_periodo))).fillna("") + " " +
+                            df_periodo.get("A. PAT", pd.Series([""]*len(df_periodo))).fillna("") + " " +
+                            df_periodo.get("A. MAT", pd.Series([""]*len(df_periodo))).fillna("")
                         )
                         estudiante = st.selectbox("Selecciona un estudiante:", df_periodo["NOMBRE_COMPLETO"].tolist())
                         if estudiante:
@@ -121,27 +121,30 @@ else:
                             st.markdown("---")
                             st.subheader("✏️ Editar datos del estudiante")
                             with st.form("form_editar"):
-                                nombre = st.text_input("Nombre(s)", value=fila["NOMBRE (S)"])
-                                apellido_pat = st.text_input("Apellido Paterno", value=fila["A. PAT"])
-                                apellido_mat = st.text_input("Apellido Materno", value=fila["A. MAT"])
-                                num_control = st.text_input("Número de control", value=str(fila["NUM. CONTROL"]))
-                                sexo = st.text_input("Sexo", value=fila.get("Unnamed: 3",""))
+                                nombre = st.text_input("Nombre(s)", value=fila.get("NOMBRE (S)", ""))
+                                apellido_pat = st.text_input("Apellido Paterno", value=fila.get("A. PAT", ""))
+                                apellido_mat = st.text_input("Apellido Materno", value=fila.get("A. MAT", ""))
+                                num_control = st.text_input("Número de control", value=str(fila.get("NUM. CONTROL", "")))
+                                sexo = st.text_input("Sexo", value=fila.get("Unnamed: 3", ""))
                                 tema = st.text_area("Tema", value=fila.get("TEMA",""))
                                 asesor_interno = st.text_input("Asesor Interno", value=fila.get("A. INTERNO",""))
                                 asesor_externo = st.text_input("Asesor Externo", value=fila.get("A. EXTERNO",""))
                                 revisor = st.text_input("Revisor", value=fila.get("REVISOR",""))
                                 observaciones = st.text_area("Observaciones", value=fila.get("OBSERVACIONES",""))
-                                fecha_dictamen = st.date_input("Fecha dictamen", pd.to_datetime(fila.get("FECHA DICTAMEN", "2000-01-01")))
+                                fecha_dictamen = st.date_input(
+                                    "Fecha dictamen", 
+                                    pd.to_datetime(fila.get("FECHA DICTAMEN", "2000-01-01"))
+                                )
 
                                 actualizar = st.form_submit_button("Actualizar estudiante")
                                 if actualizar:
                                     coleccion.update_one(
-                                        {"NUM. CONTROL": fila["NUM. CONTROL"], "PERIODO": periodo},
+                                        {"NUM. CONTROL": fila.get("NUM. CONTROL", ""), "PERIODO": periodo},
                                         {"$set": {
                                             "NOMBRE (S)": nombre,
                                             "A. PAT": apellido_pat,
                                             "A. MAT": apellido_mat,
-                                            "NUM. CONTROL": int(num_control.strip()) if num_control.isdigit() else num_control,
+                                            "NUM. CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
                                             "Unnamed: 3": sexo,
                                             "TEMA": tema,
                                             "A. INTERNO": asesor_interno,
@@ -191,7 +194,7 @@ else:
                     coleccion.insert_one({
                         "PERIODO": periodo,
                         "C": c,
-                        "NUM. CONTROL": int(num_control.strip()) if num_control.isdigit() else num_control,
+                        "NUM. CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
                         "Unnamed: 3": sexo,
                         "A. PAT": apellido_pat,
                         "A. MAT": apellido_mat,

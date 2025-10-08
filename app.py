@@ -1,10 +1,8 @@
-
-
 # ======================= IMPORTS =======================
 import streamlit as st
 import pandas as pd
 from pymongo import MongoClient
-from datetime import date, datetime
+from datetime import date
 
 # ======================= CONFIGURACIÓN =======================
 st.set_page_config(page_title="Sistema de Estudiantes", page_icon="🎓", layout="wide")
@@ -80,18 +78,25 @@ else:
 
     # ======================= 2. BUSCAR POR NÚMERO DE CONTROL =======================
     elif menu == "🔍 Buscar por Número de Control":
-        st.subheader("🔍 Buscar estudiantes por Número de Control (solo números)")
+        st.subheader("🔍 Buscar estudiantes por Número de Control")
         busqueda_num = st.text_input("Escribe el número de control:")
 
         if busqueda_num:
-            if not busqueda_num.isdigit():
+            # Limpiar y normalizar el número de control
+            num_clean = busqueda_num.replace(" ", "").lstrip("0").strip()
+
+            if not num_clean.isdigit():
                 st.warning("⚠️ Solo se permiten números")
             else:
-                num_clean = busqueda_num.strip()
                 resultados = []
                 for carrera in carreras:
                     coleccion = db[carrera]
-                    query = {"NUM. CONTROL": {"$regex": f"^{num_clean}$", "$options": "i"}}
+                    query = {
+                        "$or": [
+                            {"NUM. CONTROL": {"$regex": f"^{num_clean}$"}},   # Coincidencia exacta string
+                            {"NUM. CONTROL": int(num_clean)}                  # Coincidencia como número
+                        ]
+                    }
                     resultados.extend(list(coleccion.find(query, {"_id": 0})))
                 if resultados:
                     st.dataframe(pd.DataFrame(resultados))
@@ -134,7 +139,6 @@ else:
                             revisor = st.text_input("Revisor", value=fila.get("REVISOR", ""))
                             observaciones = st.text_area("Observaciones", value=fila.get("OBSERVACIONES", ""))
 
-                            # Aseguramos fecha válida sin límite de año (hasta 2035)
                             fecha_str = fila.get("FECHA DICTAMEN", None)
                             fecha_dictamen = pd.to_datetime(fecha_str, errors="coerce")
                             if pd.isna(fecha_dictamen):
@@ -146,7 +150,6 @@ else:
                                 max_value=date(2035, 12, 31)
                             )
 
-                            # Botón para actualizar
                             if st.button("💾 Actualizar estudiante"):
                                 coleccion.update_one(
                                     {"NUM. CONTROL": fila.get("NUM. CONTROL", ""), "PERIODO": periodo},
@@ -167,7 +170,6 @@ else:
                                 )
                                 st.success(f"✅ Estudiante '{nombre} {apellido_pat}' actualizado correctamente.")
                                 st.rerun()
-
             else:
                 st.warning("⚠️ No hay periodos en esta carrera.")
 
@@ -228,4 +230,3 @@ else:
                     st.rerun()
                 else:
                     st.warning("⚠️ Debes llenar al menos nombre, apellido paterno y número de control.")
-

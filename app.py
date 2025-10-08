@@ -1,5 +1,5 @@
 
-```python
+
 # ======================= IMPORTS =======================
 import streamlit as st
 import pandas as pd
@@ -228,4 +228,4 @@ else:
                     st.rerun()
                 else:
                     st.warning("⚠️ Debes llenar al menos nombre, apellido paterno y número de control.")
-```
+

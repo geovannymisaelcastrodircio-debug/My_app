@@ -15,14 +15,19 @@ USERS = {
 # ======================= SESIÓN =======================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+if "usuario" not in st.session_state:
+    st.session_state.usuario = ""
 
+# ======================= LOGIN =======================
 if not st.session_state.logged_in:
     st.title("🔐 Inicio de Sesión")
-    usuario = st.text_input("Usuario")
-    password = st.text_input("Contraseña", type="password")
+    usuario_input = st.text_input("Usuario")
+    password_input = st.text_input("Contraseña", type="password")
+
     if st.button("Ingresar"):
-        if usuario in USERS and password == USERS[usuario]:
+        if usuario_input in USERS and password_input == USERS[usuario_input]:
             st.session_state.logged_in = True
+            st.session_state.usuario = usuario_input  # Guardamos el usuario en la sesión
             st.success("✅ Acceso concedido")
             st.rerun()
         else:
@@ -41,9 +46,10 @@ else:
     carreras = ["II", "ISC"]
 
     # ======================= SIDEBAR MENÚ =======================
-    st.sidebar.title(f"Usuario: {usuario}")
+    st.sidebar.title(f"Usuario: {st.session_state.usuario}")
     if st.sidebar.button("🚪 Cerrar sesión"):
         st.session_state.logged_in = False
+        st.session_state.usuario = ""
         st.rerun()
 
     menu = st.sidebar.radio("Selecciona una opción:", [
@@ -72,7 +78,7 @@ else:
             resultados = []
             for carrera in carreras:
                 coleccion = db[carrera]
-                # Busqueda flexible: nombre completo o número de control o tema
+                # Búsqueda flexible: nombre completo, número de control o tema
                 query = {
                     "$or": [
                         {"NOMBRE_COMPLETO": {"$regex": busqueda.strip(), "$options": "i"}},

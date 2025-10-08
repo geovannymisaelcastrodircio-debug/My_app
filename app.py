@@ -15,19 +15,25 @@ USERS = {
 # ======================= SESIÓN =======================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+if "usuario" not in st.session_state:
+    st.session_state.usuario = ""
 
+# ======================= LOGIN =======================
 if not st.session_state.logged_in:
     st.title("🔐 Inicio de Sesión")
-    usuario = st.text_input("Usuario")
+    usuario_input = st.text_input("Usuario")
     password = st.text_input("Contraseña", type="password")
 
     if st.button("Ingresar"):
-        if usuario in USERS and password == USERS[usuario]:
+        if usuario_input in USERS and password == USERS[usuario_input]:
             st.session_state.logged_in = True
+            st.session_state.usuario = usuario_input  # Guardar usuario en session_state
             st.success("✅ Acceso concedido")
             st.rerun()
         else:
             st.error("❌ Usuario o contraseña incorrectos")
+
+# ======================= APP PRINCIPAL =======================
 else:
     # ======================= CONEXIÓN MONGODB =======================
     client = MongoClient(
@@ -39,9 +45,10 @@ else:
     carreras = ["II", "ISC"]
 
     # ======================= SIDEBAR =======================
-    st.sidebar.title(f"Usuario: {usuario}")
+    st.sidebar.title(f"Usuario: {st.session_state.usuario}")
     if st.sidebar.button("🚪 Cerrar sesión"):
         st.session_state.logged_in = False
+        st.session_state.usuario = ""
         st.rerun()
 
     st.sidebar.markdown("### Menú de Navegación")
@@ -61,13 +68,10 @@ else:
             resultados = []
             for carrera in carreras:
                 coleccion = db[carrera]
-                query = {
-                    "NOMBRE (S)": {"$regex": busqueda_nombre.strip(), "$options": "i"}
-                }
+                query = {"NOMBRE (S)": {"$regex": busqueda_nombre.strip(), "$options": "i"}}
                 resultados.extend(list(coleccion.find(query, {"_id": 0})))
             if resultados:
-                df = pd.DataFrame(resultados)
-                st.dataframe(df)
+                st.dataframe(pd.DataFrame(resultados))
             else:
                 st.info("No se encontraron coincidencias por nombre.")
 
@@ -86,8 +90,7 @@ else:
                     query = {"NUM. CONTROL": int(busqueda_num.strip())}
                     resultados.extend(list(coleccion.find(query, {"_id": 0})))
                 if resultados:
-                    df = pd.DataFrame(resultados)
-                    st.dataframe(df)
+                    st.dataframe(pd.DataFrame(resultados))
                 else:
                     st.info("No se encontraron coincidencias por número de control.")
 

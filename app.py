@@ -3,250 +3,159 @@ import streamlit as st
 import pandas as pd
 from pymongo import MongoClient
 
-# ======================= CONFIGURACIÓN =======================
-st.set_page_config(
-    page_title="Sistema de Estudiantes",
-    page_icon="🎓",
-    layout="wide"
-)
+# ======================= CONFIGURACIÓN STREAMLIT =======================
+st.set_page_config(page_title="Sistema de Estudiantes", page_icon="🎓", layout="wide")
 
-# ======================= USUARIOS =======================
-USUARIOS = {
+# ======================= USUARIOS (login simple) =======================
+USERS = {
     "admin": "1234",
-    "geovanny": "abcd"
+    "misa": "CADAN09"
 }
 
-# ======================= LOGIN =======================
-if "login" not in st.session_state:
-    st.session_state.login = False
+# ======================= SESIÓN =======================
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-def login(usuario, contrasena):
-    if usuario in USUARIOS and USUARIOS[usuario] == contrasena:
-        st.session_state.login = True
-        st.session_state.usuario = usuario
-        return True
-    else:
-        st.error("Usuario o contraseña incorrectos")
-        return False
-
-if not st.session_state.login:
-    st.title("🔒 Login")
-    usuario_input = st.text_input("Usuario")
-    contrasena_input = st.text_input("Contraseña", type="password")
+if not st.session_state.logged_in:
+    st.title("🔐 Inicio de Sesión")
+    usuario = st.text_input("Usuario")
+    password = st.text_input("Contraseña", type="password")
     if st.button("Ingresar"):
-        login(usuario_input, contrasena_input)
-    st.stop()
-
-# ======================= CONEXIÓN A MONGO =======================
-client = MongoClient("mongodb+srv://MISACAST:CADAN09@estudiantes.ddelcua.mongodb.net/?retryWrites=true&w=majority&appName=ESTUDIANTES")
-db = client["ESTUDIANTES"]
-collection = db["estudiantes"]
-
-# ======================= FUNCIONES =======================
-def buscar_estudiantes(nombre=None, numero_control=None, tema=None):
-    query = []
-    if nombre:
-        query.append({"NOMBRE": {"$regex": nombre.strip(), "$options": "i"}})
-    if numero_control:
-        query.append({"NUM. CONTROL": {"$regex": str(numero_control).strip(), "$options": "i"}})
-    if tema:
-        query.append({"TEMA": {"$regex": tema.strip(), "$options": "i"}})
-    if not query:
-        return []
-    final_query = query[0] if len(query) == 1 else {"$and": query}
-    return list(collection.find(final_query, {"_id": 0}))
-
-def agregar_estudiante(datos):
-    if datos.get("NUM. CONTROL") and datos.get("NOMBRE") and datos.get("TEMA"):
-        datos["NUM. CONTROL"] = str(datos["NUM. CONTROL"]).strip()
-        collection.insert_one(datos)
-        return True
-    return False
-
-def mostrar_todos():
-    return list(collection.find({}, {"_id": 0}))
-
-# ======================= MENÚ LATERAL =======================
-st.sidebar.title(f"Usuario: {st.session_state.usuario}")
-menu = st.sidebar.radio("Navegación", ["Inicio", "Agregar estudiante", "Buscar estudiante", "Mostrar todos"])
-
-# ======================= SECCIONES =======================
-# ----- INICIO -----
-if menu == "Inicio":
-    st.title("🏠 Bienvenido al Sistema de Estudiantes")
-    total = collection.count_documents({})
-    st.markdown(f"- Total de estudiantes en la base: **{total}**")
-    st.markdown("Usa el menú lateral para agregar, buscar o mostrar estudiantes.")
-
-# ----- AGREGAR ESTUDIANTE -----
-elif menu == "Agregar estudiante":
-    st.header("➕ Agregar nuevo estudiante")
-    with st.form("form_agregar"):
-        nombre = st.text_input("Nombre completo")
-        numero_control = st.text_input("Número de control")
-        tema = st.text_input("Tema")
-        otros = st.text_area("Otros datos (opcional)")
-        submitted = st.form_submit_button("Agregar estudiante")
-        if submitted:
-            datos_estudiante = {
-                "NOMBRE": nombre.strip(),
-                "NUM. CONTROL": numero_control.strip(),
-                "TEMA": tema.strip(),
-                "OTROS": otros.strip()
-            }
-            if agregar_estudiante(datos_estudiante):
-                st.success(f"Estudiante {nombre} agregado correctamente ✅")
-            else:
-                st.error("Por favor, completa todos los campos obligatorios (Nombre, Número de control, Tema).")
-
-# ----- BUSCAR ESTUDIANTE -----
-elif menu == "Buscar estudiante":
-    st.header("🔍 Buscar estudiante")
-    nombre_input = st.text_input("Nombre (opcional)", key="buscar_nombre")
-    numero_control_input = st.text_input("Número de control (opcional)", key="buscar_num")
-    tema_input = st.text_input("Tema (opcional)", key="buscar_tema")
-    if st.button("Buscar"):
-        resultados = buscar_estudiantes(nombre=nombre_input, numero_control=numero_control_input, tema=tema_input)
-        if resultados:
-            df = pd.DataFrame(resultados)
-            st.success(f"Se encontraron {len(resultados)} resultado(s):")
-            st.dataframe(df)
+        if usuario in USERS and password == USERS[usuario]:
+            st.session_state.logged_in = True
+            st.success("✅ Acceso concedido")
+            st.rerun()
         else:
-            st.warning("No se encontraron resultados.")
+            st.error("❌ Usuario o contraseña incorrectos")
 
-# ----- MOSTRAR TODOS -----
-elif menu == "Mostrar todos":
-    st.header("📋 Todos los estudiantes")
-    todos = mostrar_todos()
-    if todos:
-        df_todos = pd.DataFrame(todos)
-        st.success(f"Se encontraron {len(todos)} estudiantes en la base de datos:")
-        st.dataframe(df_todos)
-    else:
-        st.warning("La base de datos está vacía.")
-# ======================= IMPORTS =======================
-import streamlit as st
-import pandas as pd
-from pymongo import MongoClient
+else:
+    # ======================= CONEXIÓN A MONGODB =======================
+    client = MongoClient(
+        "mongodb+srv://MISACAST:CADAN09@estudiantes.ddelcua.mongodb.net/?retryWrites=true&w=majority&appName=ESTUDIANTES",
+        connect=True,
+        serverSelectionTimeoutMS=3000
+    )
+    db = client["ARCHIVOS-RESIDENCIAS"]
 
-# ======================= CONFIGURACIÓN =======================
-st.set_page_config(
-    page_title="Sistema de Estudiantes",
-    page_icon="🎓",
-    layout="wide"
-)
+    # ======================= VARIABLES =======================
+    carreras = ["II", "ISC"]
 
-# ======================= USUARIOS =======================
-USUARIOS = {
-    "admin": "1234",
-    "geovanny": "abcd"
-}
+    # ======================= SIDEBAR MENÚ =======================
+    st.sidebar.title(f"Usuario: {usuario}")
+    if st.sidebar.button("🚪 Cerrar sesión"):
+        st.session_state.logged_in = False
+        st.rerun()
 
-# ======================= LOGIN =======================
-if "login" not in st.session_state:
-    st.session_state.login = False
+    menu = st.sidebar.radio("Selecciona una opción:", [
+        "🏠 Inicio",
+        "🔍 Búsqueda universal",
+        "📖 Ver estudiantes",
+        "➕ Agregar estudiante"
+    ])
 
-def login(usuario, contrasena):
-    if usuario in USUARIOS and USUARIOS[usuario] == contrasena:
-        st.session_state.login = True
-        st.session_state.usuario = usuario
-        return True
-    else:
-        st.error("Usuario o contraseña incorrectos")
-        return False
+    # ======================= 1. INTERFAZ INICIO ------------------
+    if menu == "🏠 Inicio":
+        st.title("🏠 Bienvenido al Sistema de Estudiantes")
+        total_estudiantes = sum([db[c].count_documents({}) for c in carreras])
+        st.markdown(f"- Total de estudiantes en todas las carreras: **{total_estudiantes}**")
+        st.markdown("- Usa el menú lateral para agregar, buscar o consultar estudiantes.")
+        for c in carreras:
+            count = db[c].count_documents({})
+            st.markdown(f"  - Carrera {c}: {count} estudiantes")
 
-if not st.session_state.login:
-    st.title("🔒 Login")
-    usuario_input = st.text_input("Usuario")
-    contrasena_input = st.text_input("Contraseña", type="password")
-    if st.button("Ingresar"):
-        login(usuario_input, contrasena_input)
-    st.stop()
+    # ======================= 2. BÚSQUEDA UNIVERSAL =======================
+    elif menu == "🔍 Búsqueda universal":
+        st.subheader("🔍 Buscar en toda la base de datos")
+        busqueda = st.text_input("Escribe nombre, número de control o tema:")
 
-# ======================= CONEXIÓN A MONGO =======================
-client = MongoClient("mongodb+srv://MISACAST:CADAN09@estudiantes.ddelcua.mongodb.net/?retryWrites=true&w=majority&appName=ESTUDIANTES")
-db = client["ESTUDIANTES"]
-collection = db["estudiantes"]
+        if busqueda:
+            resultados = []
+            for carrera in carreras:
+                coleccion = db[carrera]
+                # Busqueda flexible: nombre completo o número de control o tema
+                query = {
+                    "$or": [
+                        {"NOMBRE_COMPLETO": {"$regex": busqueda.strip(), "$options": "i"}},
+                        {"NUM. CONTROL": {"$regex": busqueda.strip(), "$options": "i"}},
+                        {"TEMA": {"$regex": busqueda.strip(), "$options": "i"}}
+                    ]
+                }
+                resultados.extend(list(coleccion.find(query, {"_id": 0})))
 
-# ======================= FUNCIONES =======================
-def buscar_estudiantes(nombre=None, numero_control=None, tema=None):
-    query = []
-    if nombre:
-        query.append({"NOMBRE": {"$regex": nombre.strip(), "$options": "i"}})
-    if numero_control:
-        query.append({"NUM. CONTROL": {"$regex": str(numero_control).strip(), "$options": "i"}})
-    if tema:
-        query.append({"TEMA": {"$regex": tema.strip(), "$options": "i"}})
-    if not query:
-        return []
-    final_query = query[0] if len(query) == 1 else {"$and": query}
-    return list(collection.find(final_query, {"_id": 0}))
-
-def agregar_estudiante(datos):
-    if datos.get("NUM. CONTROL") and datos.get("NOMBRE") and datos.get("TEMA"):
-        datos["NUM. CONTROL"] = str(datos["NUM. CONTROL"]).strip()
-        collection.insert_one(datos)
-        return True
-    return False
-
-def mostrar_todos():
-    return list(collection.find({}, {"_id": 0}))
-
-# ======================= MENÚ LATERAL =======================
-st.sidebar.title(f"Usuario: {st.session_state.usuario}")
-menu = st.sidebar.radio("Navegación", ["Inicio", "Agregar estudiante", "Buscar estudiante", "Mostrar todos"])
-
-# ======================= SECCIONES =======================
-# ----- INICIO -----
-if menu == "Inicio":
-    st.title("🏠 Bienvenido al Sistema de Estudiantes")
-    total = collection.count_documents({})
-    st.markdown(f"- Total de estudiantes en la base: **{total}**")
-    st.markdown("Usa el menú lateral para agregar, buscar o mostrar estudiantes.")
-
-# ----- AGREGAR ESTUDIANTE -----
-elif menu == "Agregar estudiante":
-    st.header("➕ Agregar nuevo estudiante")
-    with st.form("form_agregar"):
-        nombre = st.text_input("Nombre completo")
-        numero_control = st.text_input("Número de control")
-        tema = st.text_input("Tema")
-        otros = st.text_area("Otros datos (opcional)")
-        submitted = st.form_submit_button("Agregar estudiante")
-        if submitted:
-            datos_estudiante = {
-                "NOMBRE": nombre.strip(),
-                "NUM. CONTROL": numero_control.strip(),
-                "TEMA": tema.strip(),
-                "OTROS": otros.strip()
-            }
-            if agregar_estudiante(datos_estudiante):
-                st.success(f"Estudiante {nombre} agregado correctamente ✅")
+            if resultados:
+                df = pd.DataFrame(resultados)
+                st.success(f"Se encontraron {len(resultados)} coincidencias")
+                st.dataframe(df)
             else:
-                st.error("Por favor, completa todos los campos obligatorios (Nombre, Número de control, Tema).")
+                st.info("No se encontraron coincidencias.")
 
-# ----- BUSCAR ESTUDIANTE -----
-elif menu == "Buscar estudiante":
-    st.header("🔍 Buscar estudiante")
-    nombre_input = st.text_input("Nombre (opcional)", key="buscar_nombre")
-    numero_control_input = st.text_input("Número de control (opcional)", key="buscar_num")
-    tema_input = st.text_input("Tema (opcional)", key="buscar_tema")
-    if st.button("Buscar"):
-        resultados = buscar_estudiantes(nombre=nombre_input, numero_control=numero_control_input, tema=tema_input)
-        if resultados:
-            df = pd.DataFrame(resultados)
-            st.success(f"Se encontraron {len(resultados)} resultado(s):")
-            st.dataframe(df)
-        else:
-            st.warning("No se encontraron resultados.")
+    # ======================= 3. VER ESTUDIANTES =======================
+    elif menu == "📖 Ver estudiantes":
+        st.subheader("📖 Consultar estudiantes por carrera y periodo")
+        carrera = st.selectbox("Selecciona carrera:", carreras)
+        if carrera:
+            coleccion = db[carrera]
+            periodos = coleccion.distinct("PERIODO")
+            if periodos:
+                periodo = st.selectbox("Selecciona periodo:", periodos)
+                if periodo:
+                    df_periodo = pd.DataFrame(list(coleccion.find({"PERIODO": periodo}, {"_id": 0})))
+                    if not df_periodo.empty:
+                        df_periodo["NOMBRE_COMPLETO"] = (
+                            df_periodo["NOMBRE (S)"].fillna("") + " " +
+                            df_periodo["A. PAT"].fillna("") + " " +
+                            df_periodo["A. MAT"].fillna("")
+                        )
+                        estudiante = st.selectbox("Selecciona un estudiante:", df_periodo["NOMBRE_COMPLETO"].tolist())
+                        if estudiante:
+                            fila = df_periodo[df_periodo["NOMBRE_COMPLETO"] == estudiante].iloc[0]
+                            st.json(fila.to_dict())
+            else:
+                st.warning("⚠️ No hay periodos en esta carrera.")
 
-# ----- MOSTRAR TODOS -----
-elif menu == "Mostrar todos":
-    st.header("📋 Todos los estudiantes")
-    todos = mostrar_todos()
-    if todos:
-        df_todos = pd.DataFrame(todos)
-        st.success(f"Se encontraron {len(todos)} estudiantes en la base de datos:")
-        st.dataframe(df_todos)
-    else:
-        st.warning("La base de datos está vacía.")
+    # ======================= 4. AGREGAR ESTUDIANTE =======================
+    elif menu == "➕ Agregar estudiante":
+        st.subheader("➕ Registrar un nuevo estudiante")
+        carrera = st.selectbox("Selecciona carrera:", carreras)
+        coleccion = db[carrera]
+        periodos = coleccion.distinct("PERIODO")
+        with st.form("form_agregar"):
+            periodo = st.selectbox("Periodo", periodos + ["Otro"])
+            if periodo == "Otro":
+                periodo = st.text_input("Nuevo periodo")
+            c = st.text_input("Carrera (C)")
+            num_control = st.text_input("Número de control")
+            sexo = st.text_input("Sexo (H/M)")
+            apellido_pat = st.text_input("Apellido Paterno")
+            apellido_mat = st.text_input("Apellido Materno")
+            nombre = st.text_input("Nombre(s)")
+            tema = st.text_area("Tema del proyecto")
+            asesor_interno = st.text_input("Asesor Interno")
+            asesor_externo = st.text_input("Asesor Externo")
+            revisor = st.text_input("Revisor")
+            observaciones = st.text_area("Observaciones")
+            fecha_dictamen = st.date_input("Fecha de dictamen")
+            submitted = st.form_submit_button("Agregar estudiante")
+            if submitted:
+                if nombre and apellido_pat and num_control:
+                    nombre_completo = f"{nombre} {apellido_pat} {apellido_mat}".strip()
+                    coleccion.insert_one({
+                        "PERIODO": periodo,
+                        "C": c,
+                        "NUM. CONTROL": num_control.strip(),
+                        "Unnamed: 3": sexo,
+                        "A. PAT": apellido_pat,
+                        "A. MAT": apellido_mat,
+                        "NOMBRE (S)": nombre,
+                        "TEMA": tema,
+                        "A. INTERNO": asesor_interno,
+                        "A. EXTERNO": asesor_externo,
+                        "REVISOR": revisor,
+                        "OBSERVACIONES": observaciones,
+                        "FECHA DICTAMEN": str(fecha_dictamen),
+                        "NOMBRE_COMPLETO": nombre_completo
+                    })
+                    st.success(f"✅ Estudiante '{nombre_completo}' agregado correctamente.")
+                    st.rerun()
+                else:
+                    st.warning("⚠️ Debes llenar al menos nombre, apellido paterno y número de control.")

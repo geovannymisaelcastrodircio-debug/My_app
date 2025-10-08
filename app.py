@@ -81,7 +81,7 @@ else:
                 # Búsqueda solo por NUM. CONTROL o NOMBRE (S)
                 query = {
                     "$or": [
-                        {"NUM. CONTROL": {"$regex": busqueda.strip(), "$options": "i"}},
+                        {"NUM.CONTROL": {"$regex": busqueda.strip(), "$options": "i"}},
                         {"NOMBRE (S)": {"$regex": busqueda.strip(), "$options": "i"}}
                     ]
                 }

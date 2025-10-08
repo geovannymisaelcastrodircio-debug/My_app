@@ -27,7 +27,7 @@ if not st.session_state.logged_in:
     if st.button("Ingresar"):
         if usuario_input in USERS and password_input == USERS[usuario_input]:
             st.session_state.logged_in = True
-            st.session_state.usuario = usuario_input  # Guardamos usuario en sesión
+            st.session_state.usuario = usuario_input
             st.success("✅ Acceso concedido")
             st.rerun()
         else:
@@ -42,7 +42,6 @@ else:
     )
     db = client["ARCHIVOS-RESIDENCIAS"]
 
-    # ======================= VARIABLES =======================
     carreras = ["II", "ISC"]
 
     # ======================= SIDEBAR MENÚ =======================
@@ -54,7 +53,8 @@ else:
 
     menu = st.sidebar.radio("Selecciona una opción:", [
         "🏠 Inicio",
-        "🔍 Búsqueda universal",
+        "🔍 Buscar por Número de Control",
+        "🔎 Buscar por Nombre",
         "📖 Ver estudiantes",
         "➕ Agregar estudiante"
     ])
@@ -64,39 +64,49 @@ else:
         st.title("🏠 Bienvenido al Sistema de Estudiantes")
         total_estudiantes = sum([db[c].count_documents({}) for c in carreras])
         st.markdown(f"- Total de estudiantes en todas las carreras: **{total_estudiantes}**")
-        st.markdown("- Usa el menú lateral para agregar, buscar o consultar estudiantes.")
         for c in carreras:
             count = db[c].count_documents({})
             st.markdown(f"  - Carrera {c}: {count} estudiantes")
+        st.markdown("Usa el menú lateral para buscar o agregar estudiantes.")
 
-    # ======================= 2. BÚSQUEDA UNIVERSAL =======================
-    elif menu == "🔍 Búsqueda universal":
-        st.subheader("🔍 Buscar por Número de Control o Nombre(s)")
-        busqueda = st.text_input("Escribe número de control o nombre(s):")
+    # ======================= 2. BUSCAR POR NÚMERO DE CONTROL =======================
+    elif menu == "🔍 Buscar por Número de Control":
+        st.subheader("🔍 Buscar por Número de Control (solo números)")
+        busqueda = st.text_input("Escribe el número de control:")
+        if busqueda:
+            if not busqueda.isnumeric():
+                st.warning("⚠️ Solo se permiten números para esta búsqueda.")
+            else:
+                resultados = []
+                for carrera in carreras:
+                    coleccion = db[carrera]
+                    query = {"$expr": {"$eq": [{"$toString": "$NUM. CONTROL"}, busqueda.strip()]}}
+                    resultados.extend(list(coleccion.find(query, {"_id": 0})))
+                if resultados:
+                    df = pd.DataFrame(resultados)
+                    if "NOMBRE_COMPLETO" not in df.columns:
+                        df["NOMBRE_COMPLETO"] = (
+                            df["NOMBRE (S)"].fillna("") + " " +
+                            df["A. PAT"].fillna("") + " " +
+                            df["A. MAT"].fillna("")
+                        )
+                    st.success(f"Se encontraron {len(resultados)} coincidencias")
+                    st.dataframe(df)
+                else:
+                    st.info("No se encontraron coincidencias.")
 
+    # ======================= 3. BUSCAR POR NOMBRE =======================
+    elif menu == "🔎 Buscar por Nombre":
+        st.subheader("🔎 Buscar por Nombre(s)")
+        busqueda = st.text_input("Escribe el nombre del estudiante:")
         if busqueda:
             resultados = []
             for carrera in carreras:
                 coleccion = db[carrera]
-
-                # Si la búsqueda es numérica, buscamos en NUM. CONTROL (aunque sea número en la DB)
-                if busqueda.strip().isnumeric():
-                    query = {
-                        "$expr": {
-                            "$eq": [{"$toString": "$NUM. CONTROL"}, busqueda.strip()]
-                        }
-                    }
-                else:
-                    # Si es texto, buscamos en NOMBRE (S)
-                    query = {
-                        "NOMBRE (S)": {"$regex": busqueda.strip(), "$options": "i"}
-                    }
-
+                query = {"NOMBRE (S)": {"$regex": busqueda.strip(), "$options": "i"}}
                 resultados.extend(list(coleccion.find(query, {"_id": 0})))
-
             if resultados:
                 df = pd.DataFrame(resultados)
-                # Crear columna NOMBRE_COMPLETO si no existe
                 if "NOMBRE_COMPLETO" not in df.columns:
                     df["NOMBRE_COMPLETO"] = (
                         df["NOMBRE (S)"].fillna("") + " " +
@@ -108,7 +118,7 @@ else:
             else:
                 st.info("No se encontraron coincidencias.")
 
-    # ======================= 3. VER ESTUDIANTES =======================
+    # ======================= 4. VER ESTUDIANTES =======================
     elif menu == "📖 Ver estudiantes":
         st.subheader("📖 Consultar estudiantes por carrera y periodo")
         carrera = st.selectbox("Selecciona carrera:", carreras)
@@ -132,7 +142,7 @@ else:
             else:
                 st.warning("⚠️ No hay periodos en esta carrera.")
 
-    # ======================= 4. AGREGAR ESTUDIANTE =======================
+    # ======================= 5. AGREGAR ESTUDIANTE =======================
     elif menu == "➕ Agregar estudiante":
         st.subheader("➕ Registrar un nuevo estudiante")
         carrera = st.selectbox("Selecciona carrera:", carreras)

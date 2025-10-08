@@ -69,7 +69,7 @@ else:
             count = db[c].count_documents({})
             st.markdown(f"  - Carrera {c}: {count} estudiantes")
 
-    # ======================= 2. BÚSQUEDA UNIVERSAL SIMPLIFICADA =======================
+    # ======================= 2. BÚSQUEDA UNIVERSAL =======================
     elif menu == "🔍 Búsqueda universal":
         st.subheader("🔍 Buscar por Número de Control o Nombre(s)")
         busqueda = st.text_input("Escribe número de control o nombre(s):")
@@ -78,13 +78,20 @@ else:
             resultados = []
             for carrera in carreras:
                 coleccion = db[carrera]
-                # Búsqueda solo por NUM. CONTROL o NOMBRE (S)
-                query = {
-                    "$or": [
-                        {"NUM. CONTROL": {"$regex": busqueda.strip(), "$options": "i"}},
-                        {"NOMBRE (S)": {"$regex": busqueda.strip(), "$options": "i"}}
-                    ]
-                }
+
+                # Si la búsqueda es numérica, buscamos en NUM. CONTROL (aunque sea número en la DB)
+                if busqueda.strip().isnumeric():
+                    query = {
+                        "$expr": {
+                            "$eq": [{"$toString": "$NUM. CONTROL"}, busqueda.strip()]
+                        }
+                    }
+                else:
+                    # Si es texto, buscamos en NOMBRE (S)
+                    query = {
+                        "NOMBRE (S)": {"$regex": busqueda.strip(), "$options": "i"}
+                    }
+
                 resultados.extend(list(coleccion.find(query, {"_id": 0})))
 
             if resultados:
@@ -97,7 +104,6 @@ else:
                         df["A. MAT"].fillna("")
                     )
                 st.success(f"Se encontraron {len(resultados)} coincidencias")
-                # Mostrar tabla interactiva y ordenable
                 st.dataframe(df)
             else:
                 st.info("No se encontraron coincidencias.")

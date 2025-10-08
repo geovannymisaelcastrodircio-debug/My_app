@@ -1,198 +1,103 @@
-#===== IMPORTS =======================
+# ======================= IMPORTS =======================
 import streamlit as st
 import pandas as pd
 from pymongo import MongoClient
 
-# ======================= CONFIGURACIÓN STREAMLIT =======================
-st.set_page_config(page_title="Sistema de Estudiantes", page_icon="🎓", layout="wide")
+# ======================= CONFIGURACIÓN =======================
+st.set_page_config(
+    page_title="Sistema de Estudiantes",
+    page_icon="🎓",
+    layout="wide"
+)
 
-# ======================= USUARIOS (login simple en el mismo archivo) =======================
-USERS = {
-    "admin": "1234",
-    "misa": "CADAN09",
-    "Mto.Toledo": "TOD02",
-    "JF.Verito": "VAD001"
-}
+# ======================= CONEXIÓN A MONGO =======================
+client = MongoClient("mongodb+srv://MISACAST:CADAN09@estudiantes.ddelcua.mongodb.net/?retryWrites=true&w=majority&appName=ESTUDIANTES")
+db = client["ESTUDIANTES"]
+collection = db["estudiantes"]
 
-# ======================= SESIÓN =======================
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+# ======================= FUNCIÓN DE BÚSQUEDA =======================
+def buscar_estudiantes(numero_control=None, tema=None):
+    query = {}
 
-if not st.session_state.logged_in:
-    st.title("🔐 Inicio de Sesión")
-    usuario = st.text_input("Usuario")
-    password = st.text_input("Contraseña", type="password")
+    if numero_control and not tema:
+        query = {
+            "$or": [
+                {"NUM. CONTROL": str(numero_control).strip()},
+                {"NUM. CONTROL": {"$regex": str(numero_control).strip(), "$options": "i"}}
+            ]
+        }
+    elif tema and not numero_control:
+        query = {
+            "TEMA": {"$regex": tema.strip(), "$options": "i"}
+        }
+    elif numero_control and tema:
+        query = {
+            "$and": [
+                {"NUM. CONTROL": {"$regex": str(numero_control).strip(), "$options": "i"}},
+                {"TEMA": {"$regex": tema.strip(), "$options": "i"}}
+            ]
+        }
+    else:
+        return []
 
-    if st.button("Ingresar"):
-        if usuario in USERS and password == USERS[usuario]:
-            st.session_state.logged_in = True
-            st.success("✅ Acceso concedido")
-            st.rerun()
+    resultados = list(collection.find(query, {"_id": 0}))
+    return resultados
+
+# ======================= FUNCIÓN PARA AGREGAR ESTUDIANTES =======================
+def agregar_estudiante(datos):
+    if datos.get("NUM. CONTROL") and datos.get("NOMBRE") and datos.get("TEMA"):
+        # Convertimos NUM. CONTROL a string para uniformidad
+        datos["NUM. CONTROL"] = str(datos["NUM. CONTROL"]).strip()
+        collection.insert_one(datos)
+        return True
+    return False
+
+# ======================= INTERFAZ =======================
+st.title("📚 Sistema de Estudiantes")
+
+# ---- SECCIÓN AGREGAR ESTUDIANTE ----
+st.header("➕ Agregar nuevo estudiante")
+with st.form("form_agregar"):
+    nombre = st.text_input("Nombre completo")
+    numero_control = st.text_input("Número de control")
+    tema = st.text_input("Tema")
+    otros = st.text_area("Otros datos (opcional)")
+    
+    submitted = st.form_submit_button("Agregar estudiante")
+    if submitted:
+        datos_estudiante = {
+            "NOMBRE": nombre.strip(),
+            "NUM. CONTROL": numero_control.strip(),
+            "TEMA": tema.strip(),
+            "OTROS": otros.strip()
+        }
+        if agregar_estudiante(datos_estudiante):
+            st.success(f"Estudiante {nombre} agregado correctamente ✅")
         else:
-            st.error("❌ Usuario o contraseña incorrectos")
+            st.error("Por favor, completa todos los campos obligatorios (Nombre, Número de control, Tema).")
 
-else:
-    # ======================= CONEXIÓN A MONGODB =======================
-    try:
-        client = MongoClient(
-            "mongodb+srv://MISACAST:CADAN09@estudiantes.ddelcua.mongodb.net/?retryWrites=true&w=majority",
-            connect=True,
-            serverSelectionTimeoutMS=3000
-        )
-        db = client["ARCHIVOS-RESIDENCIAS"]
-        carreras = ["II", "ISC"]
-    except Exception as e:
-        st.error(f"❌ Error al conectar con MongoDB: {e}")
-        st.stop()
+# ---- SECCIÓN BUSCAR ESTUDIANTES ----
+st.header("🔍 Buscar estudiante")
+numero_control_input = st.text_input("Número de control (opcional)", key="buscar_num")
+tema_input = st.text_input("Tema (opcional)", key="buscar_tema")
 
-    # ======================= SIDEBAR MENÚ =======================
-    st.sidebar.title("📌 Menú de Navegación")
-    if st.sidebar.button("🚪 Cerrar sesión"):
-        st.session_state.logged_in = False
-        st.rerun()
+if st.button("Buscar"):
+    resultados = buscar_estudiantes(numero_control=numero_control_input, tema=tema_input)
+    
+    if resultados:
+        df = pd.DataFrame(resultados)
+        st.success(f"Se encontraron {len(resultados)} resultado(s):")
+        st.dataframe(df)
+    else:
+        st.warning("No se encontraron resultados.")
 
-    menu = st.sidebar.radio("Selecciona una opción:", [
-        "🔍 Búsqueda universal",
-        "📖 Ver estudiantes",
-        "➕ Agregar estudiante",
-        "🗑 Eliminar estudiante"
-    ])
-
-    # ======================= FUNCIÓN DE BÚSQUEDA UNIVERSAL =======================
-    def buscar_dato(busqueda, db, carreras):
-        resultados = []
-        es_numerico = busqueda.isdigit()
-
-        for carrera in carreras:
-            coleccion = db[carrera]
-            query = {
-                "$or": [
-                    {"NOMBRE (S)": {"$regex": busqueda, "$options": "i"}},
-                    {"A. PAT": {"$regex": busqueda, "$options": "i"}},
-                    {"A. MAT": {"$regex": busqueda, "$options": "i"}},
-                    {"TEMA": {"$regex": busqueda, "$options": "i"}},
-                    {"A. INTERNO": {"$regex": busqueda, "$options": "i"}},
-                    {"A. EXTERNO": {"$regex": busqueda, "$options": "i"}},
-                    {"REVISOR": {"$regex": busqueda, "$options": "i"}},
-                ]
-            }
-
-            # búsqueda flexible por número de control
-            if es_numerico:
-                query["$or"].append({"NUM. CONTROL": busqueda})
-                query["$or"].append({"NUM. CONTROL": {"$regex": f"^{busqueda}", "$options": "i"}})
-            else:
-                query["$or"].append({"NUM. CONTROL": {"$regex": busqueda, "$options": "i"}})
-
-            resultados.extend(list(coleccion.find(query, {"_id": 0})))
-        return resultados
-
-    # ======================= 1. BÚSQUEDA UNIVERSAL =======================
-    if menu == "🔍 Búsqueda universal":
-        st.subheader("🔍 Buscar en toda la base de datos")
-        busqueda = st.text_input("Escribe nombre, número de control o tema:")
-
-        if busqueda:
-            resultados = buscar_dato(busqueda, db, carreras)
-            if resultados:
-                st.dataframe(pd.DataFrame(resultados))
-            else:
-                st.info("No se encontraron coincidencias.")
-
-    # ======================= 2. VER ESTUDIANTES =======================
-    elif menu == "📖 Ver estudiantes":
-        st.subheader("📖 Consultar estudiantes por carrera y periodo")
-
-        carrera = st.selectbox("Selecciona carrera:", carreras)
-        if carrera:
-            coleccion = db[carrera]
-            periodos = coleccion.distinct("PERIODO")
-
-            if periodos:
-                periodo = st.selectbox("Selecciona periodo:", periodos)
-                if periodo:
-                    df_periodo = pd.DataFrame(list(coleccion.find({"PERIODO": periodo}, {"_id": 0})))
-
-                    if not df_periodo.empty:
-                        df_periodo["NOMBRE_COMPLETO"] = (
-                            df_periodo["NOMBRE (S)"].fillna("") + " " +
-                            df_periodo["A. PAT"].fillna("") + " " +
-                            df_periodo["A. MAT"].fillna("")
-                        )
-
-                        estudiante = st.selectbox("Selecciona un estudiante:", df_periodo["NOMBRE_COMPLETO"].tolist())
-                        if estudiante:
-                            fila = df_periodo[df_periodo["NOMBRE_COMPLETO"] == estudiante].iloc[0]
-                            st.json(fila.to_dict())
-            else:
-                st.warning("⚠️ No hay periodos en esta carrera.")
-
-    # ======================= 3. AGREGAR ESTUDIANTE =======================
-    elif menu == "➕ Agregar estudiante":
-        st.subheader("➕ Registrar un nuevo estudiante")
-
-        carrera = st.selectbox("Selecciona carrera:", carreras)
-        coleccion = db[carrera]
-        periodos = coleccion.distinct("PERIODO")
-
-        with st.form("form_agregar"):
-            periodo = st.selectbox("Periodo", periodos + ["Otro"])
-            if periodo == "Otro":
-                periodo = st.text_input("Nuevo periodo")
-
-            c = st.text_input("Carrera (C)")
-            num_control = st.text_input("Número de control")
-            sexo = st.text_input("Sexo (H/M)")
-
-            apellido_pat = st.text_input("Apellido Paterno")
-            apellido_mat = st.text_input("Apellido Materno")
-            nombre = st.text_input("Nombre(s)")
-
-            tema = st.text_area("Tema del proyecto")
-            asesor_interno = st.text_input("Asesor Interno")
-            asesor_externo = st.text_input("Asesor Externo")
-            revisor = st.text_input("Revisor")
-            observaciones = st.text_area("Observaciones")
-            fecha_dictamen = st.date_input("Fecha de dictamen")
-
-            submitted = st.form_submit_button("Agregar estudiante")
-            if submitted:
-                if nombre and apellido_pat and num_control:
-                    nombre_completo = f"{nombre} {apellido_pat} {apellido_mat}".strip()
-                    coleccion.insert_one({
-                        "PERIODO": periodo,
-                        "C": c,
-                        "NUM. CONTROL": num_control,
-                        "Unnamed: 3": sexo,
-                        "A. PAT": apellido_pat,
-                        "A. MAT": apellido_mat,
-                        "NOMBRE (S)": nombre,
-                        "TEMA": tema,
-                        "A. INTERNO": asesor_interno,
-                        "A. EXTERNO": asesor_externo,
-                        "REVISOR": revisor,
-                        "OBSERVACIONES": observaciones,
-                        "FECHA DICTAMEN": str(fecha_dictamen),
-                        "NOMBRE_COMPLETO": nombre_completo
-                    })
-                    st.success(f"✅ Estudiante '{nombre_completo}' agregado correctamente.")
-                    st.rerun()
-                else:
-                    st.warning("⚠️ Debes llenar al menos nombre, apellido paterno y número de control.")
-
-    # ======================= 4. ELIMINAR ESTUDIANTE =======================
-    elif menu == "🗑 Eliminar estudiante":
-        st.subheader("🗑 Eliminar estudiante")
-        carrera = st.selectbox("Selecciona carrera:", carreras)
-        coleccion = db[carrera]
-
-        numero_eliminar = st.text_input("Número de control a eliminar")
-        periodo = st.text_input("Periodo del estudiante")
-        if st.button("Eliminar"):
-            if numero_eliminar and periodo:
-                result = coleccion.delete_one({"NUM. CONTROL": numero_eliminar, "PERIODO": periodo})
-                if result.deleted_count > 0:
-                    st.success(f"✅ Estudiante con número {numero_eliminar} eliminado.")
-                    st.rerun()
-                else:
-                    st.error("❌ No se encontró estudiante con ese número y periodo.")
+# ---- BOTÓN PARA MOSTRAR TODOS LOS ESTUDIANTES ----
+st.header("📋 Todos los estudiantes")
+if st.button("Mostrar todos"):
+    todos = list(collection.find({}, {"_id": 0}))
+    if todos:
+        df_todos = pd.DataFrame(todos)
+        st.success(f"Se encontraron {len(todos)} estudiantes en la base de datos:")
+        st.dataframe(df_todos)
+    else:
+        st.warning("La base de datos está vacía.")

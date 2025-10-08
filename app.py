@@ -69,33 +69,35 @@ else:
             count = db[c].count_documents({})
             st.markdown(f"  - Carrera {c}: {count} estudiantes")
 
-    # ======================= 2. BÚSQUEDA UNIVERSAL =======================
+    # ======================= 2. BÚSQUEDA UNIVERSAL SIMPLIFICADA =======================
     elif menu == "🔍 Búsqueda universal":
-        st.subheader("🔍 Buscar en toda la base de datos")
-        busqueda = st.text_input("Escribe nombre, apellidos, número de control o tema:")
+        st.subheader("🔍 Buscar por Número de Control o Nombre(s)")
+        busqueda = st.text_input("Escribe número de control o nombre(s):")
 
         if busqueda:
             resultados = []
             for carrera in carreras:
                 coleccion = db[carrera]
-                # Búsqueda flexible por todos los campos relevantes
+                # Búsqueda solo por NUM. CONTROL o NOMBRE (S)
                 query = {
                     "$or": [
-                        {"NOMBRE (S)": {"$regex": busqueda.strip(), "$options": "i"}},
-                        {"A. PAT": {"$regex": busqueda.strip(), "$options": "i"}},
-                        {"A. MAT": {"$regex": busqueda.strip(), "$options": "i"}},
                         {"NUM. CONTROL": {"$regex": busqueda.strip(), "$options": "i"}},
-                        {"TEMA": {"$regex": busqueda.strip(), "$options": "i"}}
+                        {"NOMBRE (S)": {"$regex": busqueda.strip(), "$options": "i"}}
                     ]
                 }
                 resultados.extend(list(coleccion.find(query, {"_id": 0})))
 
             if resultados:
                 df = pd.DataFrame(resultados)
-                # Concatenar nombre completo si no existe
+                # Crear columna NOMBRE_COMPLETO si no existe
                 if "NOMBRE_COMPLETO" not in df.columns:
-                    df["NOMBRE_COMPLETO"] = df["NOMBRE (S)"].fillna("") + " " + df["A. PAT"].fillna("") + " " + df["A. MAT"].fillna("")
+                    df["NOMBRE_COMPLETO"] = (
+                        df["NOMBRE (S)"].fillna("") + " " +
+                        df["A. PAT"].fillna("") + " " +
+                        df["A. MAT"].fillna("")
+                    )
                 st.success(f"Se encontraron {len(resultados)} coincidencias")
+                # Mostrar tabla interactiva y ordenable
                 st.dataframe(df)
             else:
                 st.info("No se encontraron coincidencias.")
@@ -148,7 +150,7 @@ else:
             fecha_dictamen = st.date_input("Fecha de dictamen")
             submitted = st.form_submit_button("Agregar estudiante")
             if submitted:
-                if nombre and apellido_pat and num_control:
+                if nombre and num_control:
                     nombre_completo = f"{nombre} {apellido_pat} {apellido_mat}".strip()
                     coleccion.insert_one({
                         "PERIODO": periodo,
@@ -169,4 +171,4 @@ else:
                     st.success(f"✅ Estudiante '{nombre_completo}' agregado correctamente.")
                     st.rerun()
                 else:
-                    st.warning("⚠️ Debes llenar al menos nombre, apellido paterno y número de control.")
+                    st.warning("⚠️ Debes llenar al menos nombre y número de control.")

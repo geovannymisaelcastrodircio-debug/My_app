@@ -27,7 +27,7 @@ if not st.session_state.logged_in:
     if st.button("Ingresar"):
         if usuario_input in USERS and password_input == USERS[usuario_input]:
             st.session_state.logged_in = True
-            st.session_state.usuario = usuario_input  # Guardamos el usuario en la sesión
+            st.session_state.usuario = usuario_input  # Guardamos usuario en sesión
             st.success("✅ Acceso concedido")
             st.rerun()
         else:
@@ -72,16 +72,18 @@ else:
     # ======================= 2. BÚSQUEDA UNIVERSAL =======================
     elif menu == "🔍 Búsqueda universal":
         st.subheader("🔍 Buscar en toda la base de datos")
-        busqueda = st.text_input("Escribe nombre, número de control o tema:")
+        busqueda = st.text_input("Escribe nombre, apellidos, número de control o tema:")
 
         if busqueda:
             resultados = []
             for carrera in carreras:
                 coleccion = db[carrera]
-                # Búsqueda flexible: nombre completo, número de control o tema
+                # Búsqueda flexible por todos los campos relevantes
                 query = {
                     "$or": [
-                        {"NOMBRE_COMPLETO": {"$regex": busqueda.strip(), "$options": "i"}},
+                        {"NOMBRE (S)": {"$regex": busqueda.strip(), "$options": "i"}},
+                        {"A. PAT": {"$regex": busqueda.strip(), "$options": "i"}},
+                        {"A. MAT": {"$regex": busqueda.strip(), "$options": "i"}},
                         {"NUM. CONTROL": {"$regex": busqueda.strip(), "$options": "i"}},
                         {"TEMA": {"$regex": busqueda.strip(), "$options": "i"}}
                     ]
@@ -90,6 +92,9 @@ else:
 
             if resultados:
                 df = pd.DataFrame(resultados)
+                # Concatenar nombre completo si no existe
+                if "NOMBRE_COMPLETO" not in df.columns:
+                    df["NOMBRE_COMPLETO"] = df["NOMBRE (S)"].fillna("") + " " + df["A. PAT"].fillna("") + " " + df["A. MAT"].fillna("")
                 st.success(f"Se encontraron {len(resultados)} coincidencias")
                 st.dataframe(df)
             else:

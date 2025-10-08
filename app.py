@@ -1,156 +1,231 @@
 
+```python
+# ======================= IMPORTS =======================
 import streamlit as st
 import pandas as pd
 from pymongo import MongoClient
-from datetime import date
+from datetime import date, datetime
 
 # ======================= CONFIGURACIÓN =======================
-st.set_page_config(page_title="Gestión de Estudiantes", layout="wide")
+st.set_page_config(page_title="Sistema de Estudiantes", page_icon="🎓", layout="wide")
 
-# ======================= CONEXIÓN A MONGODB =======================
-# Reemplaza con tus credenciales reales
-USUARIO = "MISACAST"
-CONTRASEÑA = "CADAN09"
-CLUSTER = "estudiantes.ddelcua.mongodb.net"
-BD = "ESTUDIANTES"
-COL = "ALUMNOS"
+# ======================= USUARIOS =======================
+USERS = {
+    "admin": "1234",
+    "misa": "CADAN09"
+}
 
-uri = f"mongodb+srv://{USUARIO}:{CONTRASEÑA}@{CLUSTER}/?retryWrites=true&w=majority"
-client = MongoClient(uri)
-db = client[BD]
-collection = db[COL]
-
-# ======================= FUNCIÓN LOGIN =======================
-def login(usuario, contrasena):
-    if usuario == "admin" and contrasena == "1234":
-        return True
-    elif usuario == "invitado" and contrasena == "0000":
-        return True
-    else:
-        return False
-
-# ======================= SESIÓN DE USUARIO =======================
-if "autenticado" not in st.session_state:
-    st.session_state.autenticado = False
+# ======================= SESIÓN =======================
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "usuario" not in st.session_state:
     st.session_state.usuario = ""
 
-if not st.session_state.autenticado:
-    st.sidebar.title("🔒 Iniciar sesión")
-    usuario = st.sidebar.text_input("Usuario")
-    contrasena = st.sidebar.text_input("Contraseña", type="password")
+# ======================= LOGIN =======================
+if not st.session_state.logged_in:
+    st.title("🔐 Inicio de Sesión")
+    usuario_input = st.text_input("Usuario")
+    password = st.text_input("Contraseña", type="password")
 
-    if st.sidebar.button("Entrar"):
-        if login(usuario, contrasena):
-            st.session_state.autenticado = True
-            st.session_state.usuario = usuario
-            st.success(f"Bienvenido, {usuario}")
+    if st.button("Ingresar"):
+        if usuario_input in USERS and password == USERS[usuario_input]:
+            st.session_state.logged_in = True
+            st.session_state.usuario = usuario_input
+            st.success("✅ Acceso concedido")
+            st.rerun()
         else:
-            st.error("Usuario o contraseña incorrectos.")
-    st.stop()
+            st.error("❌ Usuario o contraseña incorrectos")
 
-# ======================= FUNCIÓNES PRINCIPALES =======================
-def mostrar_datos():
-    datos = list(collection.find())
-    if not datos:
-        st.warning("No hay datos en la base.")
-    else:
-        df = pd.DataFrame(datos)
-        st.dataframe(df)
+# ======================= APP PRINCIPAL =======================
+else:
+    # ======================= CONEXIÓN MONGODB =======================
+    client = MongoClient(
+        "mongodb+srv://MISACAST:CADAN09@estudiantes.ddelcua.mongodb.net/?retryWrites=true&w=majority&appName=ESTUDIANTES",
+        connect=True,
+        serverSelectionTimeoutMS=3000
+    )
+    db = client["ARCHIVOS-RESIDENCIAS"]
+    carreras = ["II", "ISC"]
 
-def buscar_estudiante(busqueda):
-    query = {
-        "$or": [
-            {"NOMBRE": {"$regex": busqueda, "$options": "i"}},
-            {"NUM. CONTROL": {"$regex": busqueda, "$options": "i"}}
-        ]
-    }
-    resultados = list(collection.find(query))
-    return resultados
+    # ======================= SIDEBAR =======================
+    st.sidebar.title(f"Usuario: {st.session_state.usuario}")
+    if st.sidebar.button("🚪 Cerrar sesión"):
+        st.session_state.logged_in = False
+        st.session_state.usuario = ""
+        st.rerun()
 
-def actualizar_estudiante(id_estudiante, nuevos_datos):
-    collection.update_one({"_id": id_estudiante}, {"$set": nuevos_datos})
+    st.sidebar.markdown("### Menú de Navegación")
+    menu = st.sidebar.radio("Selecciona opción:", [
+        "🔍 Buscar por Nombre",
+        "🔍 Buscar por Número de Control",
+        "📖 Ver / Editar estudiantes",
+        "➕ Agregar estudiante"
+    ])
 
-# ======================= INTERFAZ PRINCIPAL =======================
-st.sidebar.title(f"👤 Usuario: {st.session_state.usuario}")
-menu = st.sidebar.radio("Menú", ["Mostrar", "Agregar", "Buscar / Editar"])
+    # ======================= 1. BUSCAR POR NOMBRE =======================
+    if menu == "🔍 Buscar por Nombre":
+        st.subheader("🔍 Buscar estudiantes por Nombre")
+        busqueda_nombre = st.text_input("Escribe el nombre del estudiante:")
 
-st.title("🎓 Sistema de Gestión de Estudiantes")
+        if busqueda_nombre:
+            resultados = []
+            for carrera in carreras:
+                coleccion = db[carrera]
+                query = {"NOMBRE (S)": {"$regex": busqueda_nombre.strip(), "$options": "i"}}
+                resultados.extend(list(coleccion.find(query, {"_id": 0})))
+            if resultados:
+                st.dataframe(pd.DataFrame(resultados))
+            else:
+                st.info("No se encontraron coincidencias por nombre.")
 
-# ---------- MOSTRAR ----------
-if menu == "Mostrar":
-    mostrar_datos()
+    # ======================= 2. BUSCAR POR NÚMERO DE CONTROL =======================
+    elif menu == "🔍 Buscar por Número de Control":
+        st.subheader("🔍 Buscar estudiantes por Número de Control (solo números)")
+        busqueda_num = st.text_input("Escribe el número de control:")
 
-# ---------- AGREGAR ----------
-elif menu == "Agregar":
-    st.subheader("Agregar nuevo estudiante")
-    with st.form("form_agregar"):
-        num_control = st.text_input("Número de control")
-        nombre = st.text_input("Nombre completo")
-        carrera = st.text_input("Carrera")
-        semestre = st.number_input("Semestre", min_value=1, max_value=12, step=1)
-        fecha_dictamen = st.date_input(
-            "Fecha de dictamen",
-            value=date.today(),
-            min_value=date(1900, 1, 1),
-            max_value=date(2030, 12, 31)
-        )
-        tema = st.text_input("Tema")
+        if busqueda_num:
+            if not busqueda_num.isdigit():
+                st.warning("⚠️ Solo se permiten números")
+            else:
+                num_clean = busqueda_num.strip()
+                resultados = []
+                for carrera in carreras:
+                    coleccion = db[carrera]
+                    query = {"NUM. CONTROL": {"$regex": f"^{num_clean}$", "$options": "i"}}
+                    resultados.extend(list(coleccion.find(query, {"_id": 0})))
+                if resultados:
+                    st.dataframe(pd.DataFrame(resultados))
+                else:
+                    st.info("No se encontraron coincidencias por número de control.")
 
-        enviado = st.form_submit_button("Agregar estudiante")
-        if enviado:
-            nuevo = {
-                "NUM. CONTROL": num_control,
-                "NOMBRE": nombre,
-                "CARRERA": carrera,
-                "SEMESTRE": semestre,
-                "FECHA DICTAMEN": str(fecha_dictamen),
-                "TEMA": tema
-            }
-            collection.insert_one(nuevo)
-            st.success("✅ Estudiante agregado correctamente.")
-
-# ---------- BUSCAR Y EDITAR ----------
-elif menu == "Buscar / Editar":
-    st.subheader("Buscar estudiante para editar datos")
-    busqueda = st.text_input("Buscar por nombre o número de control")
-
-    if busqueda:
-        resultados = buscar_estudiante(busqueda)
-        if not resultados:
-            st.warning("No se encontraron coincidencias.")
-        else:
-            for fila in resultados:
-                with st.expander(f"Editar: {fila.get('NOMBRE', 'Sin nombre')}"):
-                    with st.form(f"form_{fila['_id']}"):
-                        num_control = st.text_input("Número de control", value=fila.get("NUM. CONTROL", ""))
-                        nombre = st.text_input("Nombre completo", value=fila.get("NOMBRE", ""))
-                        carrera = st.text_input("Carrera", value=fila.get("CARRERA", ""))
-                        semestre = st.number_input(
-                            "Semestre", min_value=1, max_value=12, step=1,
-                            value=int(fila.get("SEMESTRE", 1))
+    # ======================= 3. VER / EDITAR ESTUDIANTES =======================
+    elif menu == "📖 Ver / Editar estudiantes":
+        st.subheader("📖 Consultar y editar estudiantes por carrera y periodo")
+        carrera = st.selectbox("Selecciona carrera:", carreras)
+        if carrera:
+            coleccion = db[carrera]
+            periodos = coleccion.distinct("PERIODO")
+            if periodos:
+                periodo = st.selectbox("Selecciona periodo:", periodos)
+                if periodo:
+                    df_periodo = pd.DataFrame(list(coleccion.find({"PERIODO": periodo}, {"_id": 0})))
+                    if not df_periodo.empty:
+                        df_periodo["NOMBRE_COMPLETO"] = (
+                            df_periodo.get("NOMBRE (S)", pd.Series([""]*len(df_periodo))).fillna("") + " " +
+                            df_periodo.get("A. PAT", pd.Series([""]*len(df_periodo))).fillna("") + " " +
+                            df_periodo.get("A. MAT", pd.Series([""]*len(df_periodo))).fillna("")
                         )
+                        estudiante = st.selectbox("Selecciona un estudiante:", df_periodo["NOMBRE_COMPLETO"].tolist())
+                        if estudiante:
+                            fila = df_periodo[df_periodo["NOMBRE_COMPLETO"] == estudiante].iloc[0]
+                            st.json(fila.to_dict())
 
-                        fecha_valor = fila.get("FECHA DICTAMEN", "2000-01-01")
-                        fecha_dictamen = st.date_input(
-                            "Fecha dictamen",
-                            value=pd.to_datetime(fecha_valor, errors="coerce").date()
-                            if pd.notna(pd.to_datetime(fecha_valor, errors="coerce"))
-                            else date(2000, 1, 1),
-                            min_value=date(1900, 1, 1),
-                            max_value=date(2030, 12, 31)
-                        )
-                        tema = st.text_input("Tema", value=fila.get("TEMA", ""))
+                            # ------------------- FORMULARIO DE EDICIÓN -------------------
+                            st.markdown("---")
+                            st.subheader("✏️ Editar datos del estudiante")
+                            nombre = st.text_input("Nombre(s)", value=fila.get("NOMBRE (S)", ""))
+                            apellido_pat = st.text_input("Apellido Paterno", value=fila.get("A. PAT", ""))
+                            apellido_mat = st.text_input("Apellido Materno", value=fila.get("A. MAT", ""))
+                            num_control = st.text_input("Número de control", value=str(fila.get("NUM. CONTROL", "")))
+                            sexo = st.text_input("Sexo", value=fila.get("Unnamed: 3", ""))
+                            tema = st.text_area("Tema", value=fila.get("TEMA", ""))
+                            asesor_interno = st.text_input("Asesor Interno", value=fila.get("A. INTERNO", ""))
+                            asesor_externo = st.text_input("Asesor Externo", value=fila.get("A. EXTERNO", ""))
+                            revisor = st.text_input("Revisor", value=fila.get("REVISOR", ""))
+                            observaciones = st.text_area("Observaciones", value=fila.get("OBSERVACIONES", ""))
 
-                        actualizar = st.form_submit_button("💾 Actualizar")
-                        if actualizar:
-                            nuevos_datos = {
-                                "NUM. CONTROL": num_control,
-                                "NOMBRE": nombre,
-                                "CARRERA": carrera,
-                                "SEMESTRE": semestre,
-                                "FECHA DICTAMEN": str(fecha_dictamen),
-                                "TEMA": tema
-                            }
-                            actualizar_estudiante(fila["_id"], nuevos_datos)
-                            st.success("✅ Datos actualizados correctamente.")
+                            # Aseguramos fecha válida sin límite de año (hasta 2035)
+                            fecha_str = fila.get("FECHA DICTAMEN", None)
+                            fecha_dictamen = pd.to_datetime(fecha_str, errors="coerce")
+                            if pd.isna(fecha_dictamen):
+                                fecha_dictamen = date.today()
+                            fecha_dictamen = st.date_input(
+                                "Fecha dictamen",
+                                value=fecha_dictamen,
+                                min_value=date(1980, 1, 1),
+                                max_value=date(2035, 12, 31)
+                            )
 
+                            # Botón para actualizar
+                            if st.button("💾 Actualizar estudiante"):
+                                coleccion.update_one(
+                                    {"NUM. CONTROL": fila.get("NUM. CONTROL", ""), "PERIODO": periodo},
+                                    {"$set": {
+                                        "NOMBRE (S)": nombre,
+                                        "A. PAT": apellido_pat,
+                                        "A. MAT": apellido_mat,
+                                        "NUM. CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
+                                        "Unnamed: 3": sexo,
+                                        "TEMA": tema,
+                                        "A. INTERNO": asesor_interno,
+                                        "A. EXTERNO": asesor_externo,
+                                        "REVISOR": revisor,
+                                        "OBSERVACIONES": observaciones,
+                                        "FECHA DICTAMEN": str(fecha_dictamen),
+                                        "NOMBRE_COMPLETO": f"{nombre} {apellido_pat} {apellido_mat}".strip()
+                                    }}
+                                )
+                                st.success(f"✅ Estudiante '{nombre} {apellido_pat}' actualizado correctamente.")
+                                st.rerun()
+
+            else:
+                st.warning("⚠️ No hay periodos en esta carrera.")
+
+    # ======================= 4. AGREGAR ESTUDIANTE =======================
+    elif menu == "➕ Agregar estudiante":
+        st.subheader("➕ Registrar un nuevo estudiante")
+        carrera = st.selectbox("Selecciona carrera:", carreras)
+        coleccion = db[carrera]
+        periodos = coleccion.distinct("PERIODO")
+
+        with st.form("form_agregar"):
+            periodo = st.selectbox("Periodo", periodos + ["Otro"])
+            if periodo == "Otro":
+                periodo = st.text_input("Nuevo periodo")
+
+            c = st.text_input("Carrera (C)")
+            num_control = st.text_input("Número de control")
+            sexo = st.text_input("Sexo (H/M)")
+
+            apellido_pat = st.text_input("Apellido Paterno")
+            apellido_mat = st.text_input("Apellido Materno")
+            nombre = st.text_input("Nombre(s)")
+
+            tema = st.text_area("Tema del proyecto")
+            asesor_interno = st.text_input("Asesor Interno")
+            asesor_externo = st.text_input("Asesor Externo")
+            revisor = st.text_input("Revisor")
+            observaciones = st.text_area("Observaciones")
+
+            fecha_dictamen = st.date_input(
+                "Fecha de dictamen",
+                value=date.today(),
+                min_value=date(1980, 1, 1),
+                max_value=date(2035, 12, 31)
+            )
+
+            submitted = st.form_submit_button("Agregar estudiante")
+            if submitted:
+                if nombre and apellido_pat and num_control:
+                    nombre_completo = f"{nombre} {apellido_pat} {apellido_mat}".strip()
+                    coleccion.insert_one({
+                        "PERIODO": periodo,
+                        "C": c,
+                        "NUM. CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
+                        "Unnamed: 3": sexo,
+                        "A. PAT": apellido_pat,
+                        "A. MAT": apellido_mat,
+                        "NOMBRE (S)": nombre,
+                        "TEMA": tema,
+                        "A. INTERNO": asesor_interno,
+                        "A. EXTERNO": asesor_externo,
+                        "REVISOR": revisor,
+                        "OBSERVACIONES": observaciones,
+                        "FECHA DICTAMEN": str(fecha_dictamen),
+                        "NOMBRE_COMPLETO": nombre_completo
+                    })
+                    st.success(f"✅ Estudiante '{nombre_completo}' agregado correctamente.")
+                    st.rerun()
+                else:
+                    st.warning("⚠️ Debes llenar al menos nombre, apellido paterno y número de control.")
+```

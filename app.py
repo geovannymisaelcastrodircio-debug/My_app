@@ -27,7 +27,7 @@ if not st.session_state.logged_in:
     if st.button("Ingresar"):
         if usuario_input in USERS and password == USERS[usuario_input]:
             st.session_state.logged_in = True
-            st.session_state.usuario = usuario_input  # Guardar usuario en session_state
+            st.session_state.usuario = usuario_input
             st.success("✅ Acceso concedido")
             st.rerun()
         else:
@@ -82,12 +82,14 @@ else:
 
         if busqueda_num:
             if not busqueda_num.isdigit():
-                st.warning("⚠️ Solo se permiten números en este campo.")
+                st.warning("⚠️ Solo se permiten números")
             else:
+                num_clean = busqueda_num.strip()
                 resultados = []
                 for carrera in carreras:
                     coleccion = db[carrera]
-                    query = {"NUM. CONTROL" : int(busqueda_num.strip())}
+                    # Usamos $regex para buscar aunque el campo esté como string o int
+                    query = {"NUM. CONTROL": {"$regex": f"^{num_clean}$", "$options": "i"}}
                     resultados.extend(list(coleccion.find(query, {"_id": 0})))
                 if resultados:
                     st.dataframe(pd.DataFrame(resultados))

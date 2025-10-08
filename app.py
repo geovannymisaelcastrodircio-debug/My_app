@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 from pymongo import MongoClient
+from datetime import date
 
 # ======================= CONFIGURACIÓN =======================
 st.set_page_config(page_title="Sistema de Estudiantes", page_icon="🎓", layout="wide")
@@ -120,43 +121,46 @@ else:
                             # ------------------- FORMULARIO DE EDICIÓN -------------------
                             st.markdown("---")
                             st.subheader("✏️ Editar datos del estudiante")
-                            with st.form("form_editar"):
-                                nombre = st.text_input("Nombre(s)", value=fila.get("NOMBRE (S)", ""))
-                                apellido_pat = st.text_input("Apellido Paterno", value=fila.get("A. PAT", ""))
-                                apellido_mat = st.text_input("Apellido Materno", value=fila.get("A. MAT", ""))
-                                num_control = st.text_input("Número de control", value=str(fila.get("NUM. CONTROL", "")))
-                                sexo = st.text_input("Sexo", value=fila.get("Unnamed: 3", ""))
-                                tema = st.text_area("Tema", value=fila.get("TEMA",""))
-                                asesor_interno = st.text_input("Asesor Interno", value=fila.get("A. INTERNO",""))
-                                asesor_externo = st.text_input("Asesor Externo", value=fila.get("A. EXTERNO",""))
-                                revisor = st.text_input("Revisor", value=fila.get("REVISOR",""))
-                                observaciones = st.text_area("Observaciones", value=fila.get("OBSERVACIONES",""))
-                                fecha_dictamen = st.date_input(
-                                    "Fecha dictamen", 
-                                    pd.to_datetime(fila.get("FECHA DICTAMEN", "2000-01-01"))
-                                )
+                            nombre = st.text_input("Nombre(s)", value=fila.get("NOMBRE (S)", ""))
+                            apellido_pat = st.text_input("Apellido Paterno", value=fila.get("A. PAT", ""))
+                            apellido_mat = st.text_input("Apellido Materno", value=fila.get("A. MAT", ""))
+                            num_control = st.text_input("Número de control", value=str(fila.get("NUM. CONTROL", "")))
+                            sexo = st.text_input("Sexo", value=fila.get("Unnamed: 3", ""))
+                            tema = st.text_area("Tema", value=fila.get("TEMA",""))
+                            asesor_interno = st.text_input("Asesor Interno", value=fila.get("A. INTERNO",""))
+                            asesor_externo = st.text_input("Asesor Externo", value=fila.get("A. EXTERNO",""))
+                            revisor = st.text_input("Revisor", value=fila.get("REVISOR",""))
+                            observaciones = st.text_area("Observaciones", value=fila.get("OBSERVACIONES",""))
 
-                                actualizar = st.form_submit_button("Actualizar estudiante")
-                                if actualizar:
-                                    coleccion.update_one(
-                                        {"NUM. CONTROL": fila.get("NUM. CONTROL", ""), "PERIODO": periodo},
-                                        {"$set": {
-                                            "NOMBRE (S)": nombre,
-                                            "A. PAT": apellido_pat,
-                                            "A. MAT": apellido_mat,
-                                            "NUM. CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
-                                            "Unnamed: 3": sexo,
-                                            "TEMA": tema,
-                                            "A. INTERNO": asesor_interno,
-                                            "A. EXTERNO": asesor_externo,
-                                            "REVISOR": revisor,
-                                            "OBSERVACIONES": observaciones,
-                                            "FECHA DICTAMEN": str(fecha_dictamen),
-                                            "NOMBRE_COMPLETO": f"{nombre} {apellido_pat} {apellido_mat}".strip()
-                                        }}
-                                    )
-                                    st.success(f"✅ Estudiante '{nombre} {apellido_pat}' actualizado correctamente.")
-                                    st.rerun()
+                            # Aseguramos fecha válida
+                            fecha_str = fila.get("FECHA DICTAMEN", None)
+                            fecha_dictamen = pd.to_datetime(fecha_str, errors="coerce")
+                            if pd.isna(fecha_dictamen):
+                                fecha_dictamen = date.today()
+                            fecha_dictamen = st.date_input("Fecha dictamen", value=fecha_dictamen)
+
+                            # Botón para actualizar
+                            if st.button("💾 Actualizar estudiante"):
+                                coleccion.update_one(
+                                    {"NUM. CONTROL": fila.get("NUM. CONTROL", ""), "PERIODO": periodo},
+                                    {"$set": {
+                                        "NOMBRE (S)": nombre,
+                                        "A. PAT": apellido_pat,
+                                        "A. MAT": apellido_mat,
+                                        "NUM. CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
+                                        "Unnamed: 3": sexo,
+                                        "TEMA": tema,
+                                        "A. INTERNO": asesor_interno,
+                                        "A. EXTERNO": asesor_externo,
+                                        "REVISOR": revisor,
+                                        "OBSERVACIONES": observaciones,
+                                        "FECHA DICTAMEN": str(fecha_dictamen),
+                                        "NOMBRE_COMPLETO": f"{nombre} {apellido_pat} {apellido_mat}".strip()
+                                    }}
+                                )
+                                st.success(f"✅ Estudiante '{nombre} {apellido_pat}' actualizado correctamente.")
+                                st.rerun()
+
             else:
                 st.warning("⚠️ No hay periodos en esta carrera.")
 

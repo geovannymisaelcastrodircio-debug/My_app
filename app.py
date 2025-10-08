@@ -55,7 +55,7 @@ else:
     menu = st.sidebar.radio("Selecciona opción:", [
         "🔍 Buscar por Nombre",
         "🔍 Buscar por Número de Control",
-        "📖 Ver estudiantes",
+        "📖 Ver / Editar estudiantes",
         "➕ Agregar estudiante"
     ])
 
@@ -88,19 +88,16 @@ else:
                 resultados = []
                 for carrera in carreras:
                     coleccion = db[carrera]
-                    # Buscar por string y por int, cubriendo ambos posibles tipos
-                    query_string = {"NUM. CONTROL": num_clean}
-                    query_int = {"NUM. CONTROL": int(num_clean)}
-                    resultados.extend(list(coleccion.find(query_string, {"_id": 0})))
-                    resultados.extend(list(coleccion.find(query_int, {"_id": 0})))
+                    query = {"NUM. CONTROL": {"$regex": f"^{num_clean}$", "$options": "i"}}
+                    resultados.extend(list(coleccion.find(query, {"_id": 0})))
                 if resultados:
                     st.dataframe(pd.DataFrame(resultados))
                 else:
                     st.info("No se encontraron coincidencias por número de control.")
 
-    # ======================= 3. VER ESTUDIANTES =======================
-    elif menu == "📖 Ver estudiantes":
-        st.subheader("📖 Consultar estudiantes por carrera y periodo")
+    # ======================= 3. VER / EDITAR ESTUDIANTES =======================
+    elif menu == "📖 Ver / Editar estudiantes":
+        st.subheader("📖 Consultar y editar estudiantes por carrera y periodo")
         carrera = st.selectbox("Selecciona carrera:", carreras)
         if carrera:
             coleccion = db[carrera]
@@ -119,6 +116,44 @@ else:
                         if estudiante:
                             fila = df_periodo[df_periodo["NOMBRE_COMPLETO"] == estudiante].iloc[0]
                             st.json(fila.to_dict())
+
+                            # ------------------- FORMULARIO DE EDICIÓN -------------------
+                            st.markdown("---")
+                            st.subheader("✏️ Editar datos del estudiante")
+                            with st.form("form_editar"):
+                                nombre = st.text_input("Nombre(s)", value=fila["NOMBRE (S)"])
+                                apellido_pat = st.text_input("Apellido Paterno", value=fila["A. PAT"])
+                                apellido_mat = st.text_input("Apellido Materno", value=fila["A. MAT"])
+                                num_control = st.text_input("Número de control", value=str(fila["NUM. CONTROL"]))
+                                sexo = st.text_input("Sexo", value=fila.get("Unnamed: 3",""))
+                                tema = st.text_area("Tema", value=fila.get("TEMA",""))
+                                asesor_interno = st.text_input("Asesor Interno", value=fila.get("A. INTERNO",""))
+                                asesor_externo = st.text_input("Asesor Externo", value=fila.get("A. EXTERNO",""))
+                                revisor = st.text_input("Revisor", value=fila.get("REVISOR",""))
+                                observaciones = st.text_area("Observaciones", value=fila.get("OBSERVACIONES",""))
+                                fecha_dictamen = st.date_input("Fecha dictamen", pd.to_datetime(fila.get("FECHA DICTAMEN", "2000-01-01")))
+
+                                actualizar = st.form_submit_button("Actualizar estudiante")
+                                if actualizar:
+                                    coleccion.update_one(
+                                        {"NUM. CONTROL": fila["NUM. CONTROL"], "PERIODO": periodo},
+                                        {"$set": {
+                                            "NOMBRE (S)": nombre,
+                                            "A. PAT": apellido_pat,
+                                            "A. MAT": apellido_mat,
+                                            "NUM. CONTROL": int(num_control.strip()) if num_control.isdigit() else num_control,
+                                            "Unnamed: 3": sexo,
+                                            "TEMA": tema,
+                                            "A. INTERNO": asesor_interno,
+                                            "A. EXTERNO": asesor_externo,
+                                            "REVISOR": revisor,
+                                            "OBSERVACIONES": observaciones,
+                                            "FECHA DICTAMEN": str(fecha_dictamen),
+                                            "NOMBRE_COMPLETO": f"{nombre} {apellido_pat} {apellido_mat}".strip()
+                                        }}
+                                    )
+                                    st.success(f"✅ Estudiante '{nombre} {apellido_pat}' actualizado correctamente.")
+                                    st.rerun()
             else:
                 st.warning("⚠️ No hay periodos en esta carrera.")
 

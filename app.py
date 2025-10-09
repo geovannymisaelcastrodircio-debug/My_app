@@ -43,6 +43,8 @@ else:
         serverSelectionTimeoutMS=3000
     )
     db = client["ARCHIVOS-RESIDENCIAS"]
+
+    # ✅ Nombres corregidos de las colecciones
     carreras = ["I.I", "I.S.C"]
 
     # ======================= SIDEBAR =======================
@@ -82,7 +84,6 @@ else:
         busqueda_num = st.text_input("Escribe el número de control:")
 
         if busqueda_num:
-            # Limpiar y normalizar el número de control
             num_clean = busqueda_num.replace(" ", "").lstrip("0").strip()
 
             if not num_clean.isdigit():

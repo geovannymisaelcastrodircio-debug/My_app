@@ -1,9 +1,4 @@
-# Interfaz web
-streamlit>=1.28
-
-# Manejo de datos (CSV)
-pandas>=2.0
-
-# Conexión a MongoDB
-pymongo>=5.5
-dnspython>=3.8
+streamlit==1.28.0
+pandas==2.1.1
+pymongo==5.5.0
+dnspython==3.8.1

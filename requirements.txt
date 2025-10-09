@@ -1,4 +1,12 @@
+# Interfaz web
 streamlit>=1.28
+
+# Manejo de datos (CSV/Excel)
 pandas>=2.0
+
+# Conexión a MongoDB
 pymongo>=5.5
 dnspython>=3.8
+
+# Opcional, para archivos Excel en caso de usarlos en el futuro
+openpyxl>=3.1

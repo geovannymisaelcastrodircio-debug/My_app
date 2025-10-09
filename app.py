@@ -43,7 +43,7 @@ else:
         serverSelectionTimeoutMS=3000
     )
     db = client["ARCHIVOS-RESIDENCIAS"]
-    carreras = ["II", "ISC"]
+    carreras = ["I.I", "I.S.C"]
 
     # ======================= SIDEBAR =======================
     st.sidebar.title(f"Usuario: {st.session_state.usuario}")

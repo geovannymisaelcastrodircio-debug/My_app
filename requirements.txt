@@ -1,12 +1,12 @@
-# Forzar versión compatible de rich antes que streamlit
-rich==13.5.2
+# ✅ Primero forzamos una versión compatible de rich
+rich==13.7.1
 
-# Streamlit estable
+# ✅ Streamlit estable y compatible
 streamlit==1.39.0
 
-# Manejo de CSV
-pandas==2.1.1
+# ✅ Lectura de CSV y manejo de datos
+pandas==2.2.2
 
-# Conexión a MongoDB
-pymongo==5.5.0
-dnspython==3.8.1
+# ✅ Conexión con MongoDB
+pymongo==5.6.0
+dnspython==2.6.1

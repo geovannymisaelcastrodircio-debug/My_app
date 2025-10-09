@@ -1,10 +1,10 @@
-# Interfaz web
-streamlit==1.39.0
-
-# Librería rich compatible con Streamlit 1.39
+# Forzar versión compatible de rich antes que streamlit
 rich==13.5.2
 
-# Manejo de datos CSV
+# Streamlit estable
+streamlit==1.39.0
+
+# Manejo de CSV
 pandas==2.1.1
 
 # Conexión a MongoDB

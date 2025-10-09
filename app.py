@@ -44,7 +44,7 @@ else:
     )
     db = client["ARCHIVOS-RESIDENCIAS"]
 
-    # ✅ Nombres corregidos de las colecciones
+    # ✅ Colecciones corregidas
     carreras = ["I.I", "I.S.C"]
 
     # ======================= SIDEBAR =======================
@@ -71,7 +71,8 @@ else:
             resultados = []
             for carrera in carreras:
                 coleccion = db[carrera]
-                query = {"NOMBRE (S)": {"$regex": busqueda_nombre.strip(), "$options": "i"}}
+                # Columnas ajustadas según tu CSV
+                query = {"NOMBRE_(S)": {"$regex": busqueda_nombre.strip(), "$options": "i"}}
                 resultados.extend(list(coleccion.find(query, {"_id": 0})))
             if resultados:
                 st.dataframe(pd.DataFrame(resultados))
@@ -92,10 +93,11 @@ else:
                 resultados = []
                 for carrera in carreras:
                     coleccion = db[carrera]
+                    # Columnas ajustadas según tu CSV
                     query = {
                         "$or": [
-                            {"NUM. CONTROL": {"$regex": f"^{num_clean}$"}},   # Coincidencia exacta string
-                            {"NUM. CONTROL": int(num_clean)}                  # Coincidencia como número
+                            {"NUM.CONTROL": {"$regex": f"^{num_clean}$"}},   # Coincidencia exacta string
+                            {"NUM.CONTROL": int(num_clean)}                  # Coincidencia como número
                         ]
                     }
                     resultados.extend(list(coleccion.find(query, {"_id": 0})))
@@ -116,31 +118,31 @@ else:
                 if periodo:
                     df_periodo = pd.DataFrame(list(coleccion.find({"PERIODO": periodo}, {"_id": 0})))
                     if not df_periodo.empty:
+                        # Columnas ajustadas para construir el nombre completo
                         df_periodo["NOMBRE_COMPLETO"] = (
-                            df_periodo.get("NOMBRE (S)", pd.Series([""]*len(df_periodo))).fillna("") + " " +
-                            df_periodo.get("A. PAT", pd.Series([""]*len(df_periodo))).fillna("") + " " +
-                            df_periodo.get("A. MAT", pd.Series([""]*len(df_periodo))).fillna("")
+                            df_periodo.get("NOMBRE_(S)", pd.Series([""]*len(df_periodo))).fillna("") + " " +
+                            df_periodo.get("A._PAT", pd.Series([""]*len(df_periodo))).fillna("") + " " +
+                            df_periodo.get("A._MAT", pd.Series([""]*len(df_periodo))).fillna("")
                         )
                         estudiante = st.selectbox("Selecciona un estudiante:", df_periodo["NOMBRE_COMPLETO"].tolist())
                         if estudiante:
                             fila = df_periodo[df_periodo["NOMBRE_COMPLETO"] == estudiante].iloc[0]
                             st.json(fila.to_dict())
 
-                            # ------------------- FORMULARIO DE EDICIÓN -------------------
                             st.markdown("---")
                             st.subheader("✏️ Editar datos del estudiante")
-                            nombre = st.text_input("Nombre(s)", value=fila.get("NOMBRE (S)", ""))
-                            apellido_pat = st.text_input("Apellido Paterno", value=fila.get("A. PAT", ""))
-                            apellido_mat = st.text_input("Apellido Materno", value=fila.get("A. MAT", ""))
-                            num_control = st.text_input("Número de control", value=str(fila.get("NUM. CONTROL", "")))
-                            sexo = st.text_input("Sexo", value=fila.get("Unnamed: 3", ""))
+                            nombre = st.text_input("Nombre(s)", value=fila.get("NOMBRE_(S)", ""))
+                            apellido_pat = st.text_input("Apellido Paterno", value=fila.get("A._PAT", ""))
+                            apellido_mat = st.text_input("Apellido Materno", value=fila.get("A._MAT", ""))
+                            num_control = st.text_input("Número de control", value=str(fila.get("NUM.CONTROL", "")))
+                            sexo = st.text_input("Sexo", value=fila.get("SEXO", ""))
                             tema = st.text_area("Tema", value=fila.get("TEMA", ""))
-                            asesor_interno = st.text_input("Asesor Interno", value=fila.get("A. INTERNO", ""))
-                            asesor_externo = st.text_input("Asesor Externo", value=fila.get("A. EXTERNO", ""))
+                            asesor_interno = st.text_input("Asesor Interno", value=fila.get("A._INTERNO", ""))
+                            asesor_externo = st.text_input("Asesor Externo", value=fila.get("A._EXTERNO", ""))
                             revisor = st.text_input("Revisor", value=fila.get("REVISOR", ""))
                             observaciones = st.text_area("Observaciones", value=fila.get("OBSERVACIONES", ""))
 
-                            fecha_str = fila.get("FECHA DICTAMEN", None)
+                            fecha_str = fila.get("FECHA_DICTAMEN", None)
                             fecha_dictamen = pd.to_datetime(fecha_str, errors="coerce")
                             if pd.isna(fecha_dictamen):
                                 fecha_dictamen = date.today()
@@ -153,26 +155,24 @@ else:
 
                             if st.button("💾 Actualizar estudiante"):
                                 coleccion.update_one(
-                                    {"NUM. CONTROL": fila.get("NUM. CONTROL", ""), "PERIODO": periodo},
+                                    {"NUM.CONTROL": fila.get("NUM.CONTROL", ""), "PERIODO": periodo},
                                     {"$set": {
-                                        "NOMBRE (S)": nombre,
-                                        "A. PAT": apellido_pat,
-                                        "A. MAT": apellido_mat,
-                                        "NUM. CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
-                                        "Unnamed: 3": sexo,
+                                        "NOMBRE_(S)": nombre,
+                                        "A._PAT": apellido_pat,
+                                        "A._MAT": apellido_mat,
+                                        "NUM.CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
+                                        "SEXO": sexo,
                                         "TEMA": tema,
-                                        "A. INTERNO": asesor_interno,
-                                        "A. EXTERNO": asesor_externo,
+                                        "A._INTERNO": asesor_interno,
+                                        "A._EXTERNO": asesor_externo,
                                         "REVISOR": revisor,
                                         "OBSERVACIONES": observaciones,
-                                        "FECHA DICTAMEN": str(fecha_dictamen),
+                                        "FECHA_DICTAMEN": str(fecha_dictamen),
                                         "NOMBRE_COMPLETO": f"{nombre} {apellido_pat} {apellido_mat}".strip()
                                     }}
                                 )
                                 st.success(f"✅ Estudiante '{nombre} {apellido_pat}' actualizado correctamente.")
                                 st.rerun()
-            else:
-                st.warning("⚠️ No hay periodos en esta carrera.")
 
     # ======================= 4. AGREGAR ESTUDIANTE =======================
     elif menu == "➕ Agregar estudiante":
@@ -214,17 +214,17 @@ else:
                     coleccion.insert_one({
                         "PERIODO": periodo,
                         "C": c,
-                        "NUM. CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
-                        "Unnamed: 3": sexo,
-                        "A. PAT": apellido_pat,
-                        "A. MAT": apellido_mat,
-                        "NOMBRE (S)": nombre,
+                        "NUM.CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
+                        "SEXO": sexo,
+                        "A._PAT": apellido_pat,
+                        "A._MAT": apellido_mat,
+                        "NOMBRE_(S)": nombre,
                         "TEMA": tema,
-                        "A. INTERNO": asesor_interno,
-                        "A. EXTERNO": asesor_externo,
+                        "A._INTERNO": asesor_interno,
+                        "A._EXTERNO": asesor_externo,
                         "REVISOR": revisor,
                         "OBSERVACIONES": observaciones,
-                        "FECHA DICTAMEN": str(fecha_dictamen),
+                        "FECHA_DICTAMEN": str(fecha_dictamen),
                         "NOMBRE_COMPLETO": nombre_completo
                     })
                     st.success(f"✅ Estudiante '{nombre_completo}' agregado correctamente.")

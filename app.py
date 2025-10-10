@@ -71,7 +71,6 @@ else:
             resultados = []
             for carrera in carreras:
                 coleccion = db[carrera]
-                # Columnas ajustadas según tu CSV
                 query = {"NOMBRE_(S)": {"$regex": busqueda_nombre.strip(), "$options": "i"}}
                 resultados.extend(list(coleccion.find(query, {"_id": 0})))
             if resultados:
@@ -79,32 +78,42 @@ else:
             else:
                 st.info("No se encontraron coincidencias por nombre.")
 
-    # ======================= 2. BUSCAR POR NÚMERO DE CONTROL =======================
+    # ======================= 2. BUSCAR POR NÚMERO DE CONTROL (Robusta) =======================
     elif menu == "🔍 Buscar por Número de Control":
         st.subheader("🔍 Buscar estudiantes por Número de Control")
         busqueda_num = st.text_input("Escribe el número de control:")
 
         if busqueda_num:
-            num_clean = busqueda_num.replace(" ", "").lstrip("0").strip()
+            # Normaliza el número ingresado
+            num_clean = str(busqueda_num).strip().replace(" ", "").replace("-", "").replace(".", "").upper()
 
-            if not num_clean.isdigit():
-                st.warning("⚠️ Solo se permiten números")
+            resultados = []
+            for carrera in carreras:
+                coleccion = db[carrera]
+
+                # Búsqueda flexible: intenta igualar distintos formatos posibles
+                query = {
+                    "$or": [
+                        {"NUM.CONTROL": {"$regex": f"{num_clean}", "$options": "i"}},
+                        {"NUM_CONTROL": {"$regex": f"{num_clean}", "$options": "i"}},
+                        {"NUM.CONTROL": num_clean},
+                        {"NUM_CONTROL": num_clean},
+                        {"NUM.CONTROL": int(num_clean)} if num_clean.isdigit() else {},
+                        {"NUM_CONTROL": int(num_clean)} if num_clean.isdigit() else {},
+                        {"NUM.CONTROL": float(num_clean)} if num_clean.replace(".", "", 1).isdigit() else {},
+                        {"NUM_CONTROL": float(num_clean)} if num_clean.replace(".", "", 1).isdigit() else {}
+                    ]
+                }
+
+                encontrados = list(coleccion.find(query, {"_id": 0}))
+                if encontrados:
+                    resultados.extend(encontrados)
+
+            if resultados:
+                st.success(f"✅ {len(resultados)} resultado(s) encontrado(s).")
+                st.dataframe(pd.DataFrame(resultados))
             else:
-                resultados = []
-                for carrera in carreras:
-                    coleccion = db[carrera]
-                    # Columnas ajustadas según tu CSV
-                    query = {
-                        "$or": [
-                            {"NUM.CONTROL": {"$regex": f"^{num_clean}$"}},   # Coincidencia exacta string
-                            {"NUM.CONTROL": int(num_clean)}                  # Coincidencia como número
-                        ]
-                    }
-                    resultados.extend(list(coleccion.find(query, {"_id": 0})))
-                if resultados:
-                    st.dataframe(pd.DataFrame(resultados))
-                else:
-                    st.info("No se encontraron coincidencias por número de control.")
+                st.info("⚠️ No se encontraron coincidencias para ese número de control.")
 
     # ======================= 3. VER / EDITAR ESTUDIANTES =======================
     elif menu == "📖 Ver / Editar estudiantes":
@@ -118,7 +127,6 @@ else:
                 if periodo:
                     df_periodo = pd.DataFrame(list(coleccion.find({"PERIODO": periodo}, {"_id": 0})))
                     if not df_periodo.empty:
-                        # Columnas ajustadas para construir el nombre completo
                         df_periodo["NOMBRE_COMPLETO"] = (
                             df_periodo.get("NOMBRE_(S)", pd.Series([""]*len(df_periodo))).fillna("") + " " +
                             df_periodo.get("A._PAT", pd.Series([""]*len(df_periodo))).fillna("") + " " +
@@ -160,7 +168,7 @@ else:
                                         "NOMBRE_(S)": nombre,
                                         "A._PAT": apellido_pat,
                                         "A._MAT": apellido_mat,
-                                        "NUM.CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
+                                        "NUM.CONTROL": num_control,
                                         "SEXO": sexo,
                                         "TEMA": tema,
                                         "A._INTERNO": asesor_interno,
@@ -214,7 +222,7 @@ else:
                     coleccion.insert_one({
                         "PERIODO": periodo,
                         "C": c,
-                        "NUM.CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
+                        "NUM.CONTROL": num_control,
                         "SEXO": sexo,
                         "A._PAT": apellido_pat,
                         "A._MAT": apellido_mat,

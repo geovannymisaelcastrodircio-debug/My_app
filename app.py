@@ -10,8 +10,7 @@ st.set_page_config(page_title="Sistema de Estudiantes", page_icon="🎓", layout
 # ======================= USUARIOS =======================
 USERS = {
     "admin": "1234",
-    "misa": "CADAN09",
-    "JEFE": "CADAN0"
+    "misa": "CADAN09"
 }
 
 # ======================= SESIÓN =======================
@@ -79,42 +78,53 @@ else:
             else:
                 st.info("No se encontraron coincidencias por nombre.")
 
-    # ======================= 2. BUSCAR POR NÚMERO DE CONTROL (Robusta) =======================
+    # ======================= 2. BUSCAR POR NÚMERO DE CONTROL =======================
     elif menu == "🔍 Buscar por Número de Control":
         st.subheader("🔍 Buscar estudiantes por Número de Control")
         busqueda_num = st.text_input("Escribe el número de control:")
 
         if busqueda_num:
-            # Normaliza el número ingresado
-            num_clean = str(busqueda_num).strip().replace(" ", "").replace("-", "").replace(".", "").upper()
+            num_input = busqueda_num.strip()
+            num_normalizado = num_input.replace(" ", "").lstrip("0")
 
             resultados = []
             for carrera in carreras:
                 coleccion = db[carrera]
 
-                # Búsqueda flexible: intenta igualar distintos formatos posibles
+                # Posibles formatos (texto, número, decimal, etc.)
+                posibles_valores = set([
+                    num_input,
+                    num_normalizado,
+                    num_input.replace(".", ""),
+                    num_normalizado.replace(".", ""),
+                    num_input.replace(",", "."),
+                ])
+
+                # Agregar equivalentes numéricos si aplica
+                try:
+                    posibles_valores.add(int(float(num_input)))
+                except:
+                    pass
+                try:
+                    posibles_valores.add(float(num_input))
+                except:
+                    pass
+
+                # Consulta flexible
                 query = {
                     "$or": [
-                        {"NUM.CONTROL": {"$regex": f"{num_clean}", "$options": "i"}},
-                        {"NUM_CONTROL": {"$regex": f"{num_clean}", "$options": "i"}},
-                        {"NUM.CONTROL": num_clean},
-                        {"NUM_CONTROL": num_clean},
-                        {"NUM.CONTROL": int(num_clean)} if num_clean.isdigit() else {},
-                        {"NUM_CONTROL": int(num_clean)} if num_clean.isdigit() else {},
-                        {"NUM.CONTROL": float(num_clean)} if num_clean.replace(".", "", 1).isdigit() else {},
-                        {"NUM_CONTROL": float(num_clean)} if num_clean.replace(".", "", 1).isdigit() else {}
+                        {"NUM.CONTROL": {"$in": list(posibles_valores)}},
+                        {"NUM.CONTROL": {"$regex": f"^{num_input}$", "$options": "i"}},
+                        {"NUM.CONTROL": {"$regex": f"^{num_normalizado}$", "$options": "i"}}
                     ]
                 }
 
-                encontrados = list(coleccion.find(query, {"_id": 0}))
-                if encontrados:
-                    resultados.extend(encontrados)
+                resultados.extend(list(coleccion.find(query, {"_id": 0})))
 
             if resultados:
-                st.success(f"✅ {len(resultados)} resultado(s) encontrado(s).")
                 st.dataframe(pd.DataFrame(resultados))
             else:
-                st.info("⚠️ No se encontraron coincidencias para ese número de control.")
+                st.warning("⚠️ No se encontraron coincidencias para ese número de control.")
 
     # ======================= 3. VER / EDITAR ESTUDIANTES =======================
     elif menu == "📖 Ver / Editar estudiantes":
@@ -169,7 +179,7 @@ else:
                                         "NOMBRE_(S)": nombre,
                                         "A._PAT": apellido_pat,
                                         "A._MAT": apellido_mat,
-                                        "NUM.CONTROL": num_control,
+                                        "NUM.CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
                                         "SEXO": sexo,
                                         "TEMA": tema,
                                         "A._INTERNO": asesor_interno,
@@ -223,7 +233,7 @@ else:
                     coleccion.insert_one({
                         "PERIODO": periodo,
                         "C": c,
-                        "NUM.CONTROL": num_control,
+                        "NUM.CONTROL": int(num_control.strip()) if num_control.strip().isdigit() else num_control,
                         "SEXO": sexo,
                         "A._PAT": apellido_pat,
                         "A._MAT": apellido_mat,

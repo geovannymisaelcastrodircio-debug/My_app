@@ -10,7 +10,8 @@ st.set_page_config(page_title="Sistema de Estudiantes", page_icon="🎓", layout
 # ======================= USUARIOS =======================
 USERS = {
     "admin": "1234",
-    "misa": "CADAN09"
+    "misa": "CADAN09",
+    "JEFE": "CADAN0"
 }
 
 # ======================= SESIÓN =======================
